@@ -15,6 +15,7 @@ import {
   Copy,
   Crosshair,
   Droplets,
+  Flame,
   HeartHandshake,
   History,
   Home,
