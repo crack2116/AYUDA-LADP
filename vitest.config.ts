@@ -16,7 +16,12 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],
-      include: ["src/domain/**", "src/application/**", "src/infrastructure/**"],
+      include: [
+        "src/domain/**",
+        "src/application/**",
+        "src/infrastructure/**",
+        "src/presentation/**",
+      ],
       exclude: ["**/*.sql"],
       thresholds: {
         lines: 80,
