@@ -142,24 +142,27 @@ Shared password: `ladp2026`. The login screen has one click-to-fill button per r
 Additional seeded accounts exist for the KPIs (`JEF-002`…`JEF-006`, `COO-SC-01`, `ASI-PN-02`,
 `ASI-SC-01`) but the login screen only exposes the three demo buttons.
 
-## npm scripts
+## pnpm scripts
 
 | Script | What it does |
 | --- | --- |
-| `npm run dev` | Next.js dev server with Turbopack on port 3000 |
-| `npm run build` | Production build with Turbopack |
-| `npm run start` | Serve the production build |
-| `npm run lint` | ESLint over the repository |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm test` | Run the Vitest suite once |
-| `npm run test:watch` | Vitest in watch mode |
-| `npm run test:coverage` | Vitest + V8 coverage with the 80% global gates |
-| `npm run test:e2e` | Playwright flow with video recording |
+| `pnpm dev` | Next.js dev server with Turbopack on port 3000 |
+| `pnpm build` | Production build with Turbopack |
+| `pnpm start` | Serve the production build |
+| `pnpm lint` | ESLint over the repository |
+| `pnpm typecheck` | `tsc --noEmit` |
+| `pnpm test` | Run the Vitest suite once |
+| `pnpm test:watch` | Vitest in watch mode |
+| `pnpm test:coverage` | Vitest + V8 coverage with the 80% global gates |
+| `pnpm test:e2e` | Playwright flow with video recording |
+
+Dependencies are managed with **pnpm 8+** (`pnpm-lock.yaml`). `pnpm import` produced the lockfile
+from the previous npm one; there is no `package-lock.json` in the repository.
 
 ## Tests and coverage
 
 ```bash
-npm run test:coverage
+pnpm test:coverage
 ```
 
 Vitest runs in jsdom against `src/domain`, `src/application`, `src/infrastructure` and
@@ -169,20 +172,20 @@ branch, the use-case failure paths, the CSV contract, the local store, and React
 flows for login, the incident form, both dashboards, the support chat and the QA bar.
 
 ```bash
-npx tsc --noEmit
-npx eslint src --max-warnings 0
+pnpm exec tsc --noEmit
+pnpm exec eslint src --max-warnings 0
 ```
 
 ## Playwright E2E and the recorded video
 
 ```bash
-npx playwright install chromium
-npm run test:e2e
+pnpm exec playwright install chromium
+pnpm test:e2e
 ```
 
 `playwright.config.ts` runs one Chromium worker with `video: "on"`, `trace: "retain-on-failure"`,
 `locale: "es-PE"` and `timezoneId: "America/Lima"`, against `http://127.0.0.1:3000`. It starts
-`npm run dev` automatically unless a server is already listening (and reuses it locally, never in
+`pnpm dev` automatically unless a server is already listening (and reuses it locally, never in
 CI).
 
 The single test `flujo completo AYUDA LADP` walks the demo story: login and support ticket → assistant
@@ -223,8 +226,8 @@ Nothing reaches a repository during an injection, and the bar has no effect outs
 ## Quick start
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Open `http://127.0.0.1:3000/login`, pick a demo role, and follow the seeded Piura data.

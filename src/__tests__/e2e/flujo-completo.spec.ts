@@ -10,12 +10,12 @@ const KPI_TEST_IDS = [
 ] as const;
 
 test("flujo completo AYUDA LADP", async ({ page, context }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"], {
-    origin: "http://127.0.0.1:3000",
-  });
-
   // 1. Login screen + support ticket from the public route.
   await page.goto("/login");
+  // Grant on the origin the config actually serves, so a PORT override still works.
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: new URL(page.url()).origin,
+  });
   await expect(page.getByRole("heading", { name: "AYUDA LADP" })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Acceso Institucional" }),

@@ -38,7 +38,7 @@ Out of scope (documented in README):
 
 - Next.js 15 App Router, React 19, TypeScript strict, Tailwind CSS v4, lucide-react only (no images).
 - Dates evaluated in `America/Lima`. Server and client must not disagree.
-- The app must build and run with `npm run dev` on a clean machine with no env vars.
+- The app must build and run with `pnpm dev` on a clean machine with no env vars.
 - Repo is greenfield: `C:\Users\elcra\Desktop\ONG` (own git repo, branch `feat/ayuda-ladp-mvp`).
 
 ## Delivery strategy
@@ -123,16 +123,16 @@ support ticket → asistente create + QA break → coordinador validate → jefa
 
 ### T13 — Docs + final verification
 
-README (setup, architecture, Supabase switching, test/video commands). Run `npm run lint`,
-`npm run build`, `npm run test:coverage`.
+README (setup, architecture, Supabase switching, test/video commands). Run `pnpm lint`,
+`pnpm build`, `pnpm test:coverage`.
 
 ## Verification commands
 
-- `npx tsc --noEmit`
-- `npm run lint`
-- `npm run test:coverage`
-- `npm run build`
-- `npx playwright test` (after `npx playwright install chromium`)
+- `pnpm exec tsc --noEmit`
+- `pnpm lint`
+- `pnpm test:coverage`
+- `pnpm build`
+- `pnpm test:e2e` (after `pnpm exec playwright install chromium`)
 
 ## Progress
 
@@ -150,6 +150,9 @@ README (setup, architecture, Supabase switching, test/video commands). Run `npm 
   remedy is a smaller candidate, which is not reachable here because `--base-ref` only moves the
   base while the head stays at `HEAD`; the remaining split still carries 4291 added lines.
   Delivery stays under ordinary repository policy with the verification above as the evidence.
+
+- 2026-11-10 — Migrated the workspace to pnpm 8 (`pnpm-lock.yaml`, `package-lock.json` removed),
+  updated Playwright's `webServer.command` and the README, and disabled RDD for this clone.
 
 ## Acceptance evidence
 
