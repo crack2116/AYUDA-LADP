@@ -182,18 +182,18 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
 
   const brand = (
     <Link href={homeForRole(user.rol)} className="flex items-center gap-3">
-      <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-ladp-cobalt">
+      <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1d5db6] to-[#0d3b80] shadow-md shadow-blue-950/50 ring-1 ring-white/20">
         <ShieldCheck className="h-6 w-6 text-white" aria-hidden={true} />
         <Flame
-          className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-ladp-navy p-0.5 text-ladp-orange"
+          className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-[#041235] p-0.5 text-ladp-orange"
           aria-hidden={true}
         />
       </span>
       <span className="min-w-0">
-        <span className="block text-base font-black leading-tight tracking-tight text-white md:text-ladp-navy-dark">
+        <span className="block text-base font-black leading-tight tracking-tight text-white">
           AYUDA LADP
         </span>
-        <span className="block truncate text-[11px] font-medium uppercase tracking-wide text-white/60 md:text-ladp-slate">
+        <span className="block truncate text-[11px] font-medium uppercase tracking-wide text-white/70">
           Respuesta humanitaria
         </span>
       </span>
@@ -209,11 +209,20 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
         Saltar al contenido principal
       </a>
 
-      <aside className="hidden w-72 shrink-0 flex-col bg-ladp-navy-dark md:sticky md:top-0 md:flex md:h-screen">
-        <div className="px-5 py-6">{brand}</div>
+      <aside className="relative hidden w-72 shrink-0 flex-col bg-gradient-to-b from-[#030d29] via-[#041235] to-[#020718] border-r border-white/5 md:sticky md:top-0 md:flex md:h-screen shadow-2xl">
+        {/* Subtle decorative curved ambient light */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-20"
+          style={{
+            backgroundImage: "radial-gradient(ellipse at top left, #1d5db6 0%, transparent 70%)",
+          }}
+        />
 
-        <nav aria-label="Navegación principal" className="flex-1 px-3">
-          <ul className="space-y-1">
+        <div className="relative z-10 px-5 py-6 border-b border-white/10">{brand}</div>
+
+        <nav aria-label="Navegación principal" className="relative z-10 flex-1 px-3 py-4">
+          <ul className="space-y-1.5">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);
@@ -222,14 +231,14 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
                   <Link
                     href={item.href}
                     aria-current={active ? "page" : undefined}
-                    className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                    className={`flex min-h-11 items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
                       active
-                        ? "bg-ladp-cobalt text-white"
-                        : "text-white/70 hover:bg-white/10 hover:text-white"
+                        ? "bg-gradient-to-r from-[#1752a7] to-[#0f3d82] text-white shadow-lg shadow-blue-950/60 border border-blue-400/30 ring-1 ring-white/10"
+                        : "text-white/75 hover:bg-white/10 hover:text-white"
                     }`}
                   >
-                    <Icon className="h-5 w-5" aria-hidden={true} />
-                    {item.label}
+                    <Icon className="h-5 w-5 shrink-0" aria-hidden={true} />
+                    <span>{item.label}</span>
                   </Link>
                 </li>
               );
@@ -238,40 +247,58 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
         </nav>
 
         {user.rol === "jefatura" ? (
-          <div className="border-t border-white/10 p-3 bg-white/5">
-            <div className="rounded-xl bg-white/10 p-3 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#90bafe] opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#d5e3ff]" />
-                  </span>
-                  <span className="text-[10px] font-black text-white uppercase tracking-wider">
-                    SAT-LINK ENLACE
-                  </span>
-                </div>
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-white/20 text-[#b2c7f4] uppercase">
-                  ENCR 256B
+          <div className="relative z-10 border-t border-white/10 p-3 bg-black/20">
+            <div className="rounded-xl bg-white/5 border border-white/10 p-3 flex flex-col gap-2.5 backdrop-blur-md">
+              <div className="flex items-center justify-between text-[10px] font-bold text-white/70">
+                <span className="uppercase tracking-wider">Últ. Act. Estadísticas</span>
+                <span className="rounded bg-sky-500/20 text-sky-300 font-mono px-1.5 py-0.5 border border-sky-400/30">
+                  Hora: 14:30
                 </span>
               </div>
-              <div className="flex justify-between items-center text-[#b2c7f4] text-[11px]">
-                <span>Estabilidad</span>
-                <span className="font-mono font-bold text-white">99.4%</span>
+              <div className="flex items-center justify-between font-mono text-[11px] text-white font-bold">
+                <span className="inline-flex items-center gap-1.5 text-white/80 font-sans font-medium">
+                  <Calendar className="h-3.5 w-3.5 text-sky-400" /> 12/02/2026
+                </span>
+                <span className="inline-flex items-center gap-1 text-white/80 font-sans font-medium">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Sesión: 01:20:45
+                </span>
               </div>
-              <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden">
-                <div className="bg-[#d5e3ff] h-full rounded-full" style={{ width: "99.4%" }} />
-              </div>
-              <div className="flex items-center gap-1 text-white/70 text-[10px] font-semibold pt-0.5">
-                <Lock className="h-3 w-3" />
-                <span>Conexión Segura Jefatura</span>
+
+              {/* SAT-LINK Telemetry Gauge */}
+              <div className="pt-1.5 border-t border-white/10 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                    </span>
+                    <span className="text-[10px] font-black text-white uppercase tracking-wider">
+                      SAT-LINK ENLACE
+                    </span>
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-white/10 text-sky-200 uppercase">
+                    ENCR 256B
+                  </span>
+                </div>
+                <div className="w-full bg-white/15 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-sky-400 h-full rounded-full transition-all" style={{ width: "99.4%" }} />
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-white/60 font-medium">
+                  <span className="inline-flex items-center gap-1">
+                    <Lock className="h-3 w-3 text-sky-400" />
+                    <span>Conexión Segura Jefatura</span>
+                  </span>
+                  <span className="font-mono font-bold text-white">99.4%</span>
+                </div>
               </div>
             </div>
           </div>
         ) : null}
 
-        <div className="space-y-2 border-t border-white/10 px-4 py-4">
+        <div className="relative z-10 space-y-2 border-t border-white/10 px-4 py-3.5 bg-black/30">
           <label
-            className="block text-xs font-semibold text-white/70"
+            className="block text-[11px] font-bold text-white/70 uppercase tracking-wider"
             htmlFor="role-switcher"
           >
             Cambiar de rol
@@ -281,58 +308,59 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
             value={user.rol}
             disabled={switching}
             onChange={(event) => void handleRoleChange(event.target.value as UserRole)}
-            className="min-h-11 w-full rounded-lg border border-white/20 bg-ladp-navy px-3 text-sm font-semibold text-white"
+            className="min-h-10 w-full rounded-xl border border-white/20 bg-[#0b1c40] px-3 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
             title="Cambiar de rol cierra la sesión actual"
           >
             <option value="jefatura">Jefatura</option>
             <option value="coordinador">Coordinador</option>
             <option value="asistente">Asistente</option>
           </select>
-          <p className="text-[11px] leading-snug text-white/50">
+          <p className="text-[10px] leading-snug text-white/50">
             Cambiar a Jefatura o Coordinación cierra la sesión actual.
           </p>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="bg-ladp-navy md:border-b md:border-ladp-navy/10 md:bg-ladp-surface">
+        <header className="bg-ladp-navy md:border-b md:border-slate-200/80 md:bg-white/95 md:backdrop-blur-md shadow-2xs">
           <div className="flex items-center justify-between gap-3 px-4 py-3 md:px-6">
             <div className="md:hidden">{brand}</div>
             {user.rol === "jefatura" ? (
-              <div className="hidden items-center gap-2 md:flex">
-                <span className="inline-flex items-center gap-1 rounded-lg bg-surface-container-low px-2.5 py-1 text-xs font-bold text-on-surface-variant">
-                  <Calendar className="h-3.5 w-3.5 text-secondary" />
+              <div className="hidden items-center gap-2.5 md:flex">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 border border-slate-200/90 px-3.5 py-1 text-xs font-bold text-slate-700 shadow-2xs">
+                  <Calendar className="h-3.5 w-3.5 text-[#0d428e]" />
                   FEB 2026
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-lg bg-surface-container-low px-2.5 py-1 text-xs font-bold text-on-surface-variant">
-                  <MapPin className="h-3.5 w-3.5 text-secondary" />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 border border-slate-200/90 px-3.5 py-1 text-xs font-bold text-slate-700 shadow-2xs">
+                  <MapPin className="h-3.5 w-3.5 text-[#0d428e]" />
                   Nivel Nacional (Todas las Regiones)
                 </span>
-                <span className="rounded-lg bg-secondary-fixed/50 px-2.5 py-1 text-xs font-bold text-on-secondary-fixed">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200/80 px-3.5 py-1 text-xs font-bold text-[#0d428e] shadow-2xs">
+                  <ShieldCheck className="h-3.5 w-3.5 text-[#0d428e]" />
                   Usuarios Jefatura Activos: 6/6
                 </span>
               </div>
             ) : null}
             <div className="ml-auto flex min-w-0 items-center gap-3">
               <div className="min-w-0 text-right">
-                <p className="max-w-[9rem] truncate text-sm font-bold text-white md:max-w-none md:text-ladp-navy-dark">
+                <p className="max-w-[10rem] truncate text-sm font-black text-white md:max-w-none md:text-[#071938]">
                   {user.nombre}
                 </p>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-ladp-amber md:text-ladp-slate">
+                <p className="text-[11px] font-black uppercase tracking-wider text-ladp-amber md:text-[#0d428e]">
                   {USER_ROLE_LABELS[user.rol]}
                 </p>
               </div>
-              <span className="hidden h-11 w-11 items-center justify-center rounded-full bg-ladp-cobalt text-sm font-black text-white md:flex">
+              <span className="hidden h-10 w-10 items-center justify-center rounded-full bg-[#0d428e] text-xs font-black text-white shadow-sm md:flex ring-2 ring-white">
                 {initialsFor(user.nombre)}
               </span>
               <button
                 type="button"
                 data-testid="nav-logout"
                 onClick={() => void onLogout()}
-                className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg border border-white/25 px-3 text-sm font-bold text-white transition-colors hover:bg-white/10 md:border-ladp-navy/20 md:text-ladp-navy-dark md:hover:bg-ladp-bg"
+                className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-white/25 px-3 text-xs font-bold text-white transition-all hover:bg-white/10 md:border-slate-200/90 md:bg-white md:text-slate-700 md:hover:bg-slate-50 md:shadow-2xs"
                 aria-label="Salir de la sesión"
               >
-                <LogOut className="h-4 w-4" aria-hidden={true} />
+                <LogOut className="h-3.5 w-3.5" aria-hidden={true} />
                 <span className="hidden sm:inline">Salir</span>
               </button>
             </div>

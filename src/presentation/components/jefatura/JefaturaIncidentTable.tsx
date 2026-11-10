@@ -64,15 +64,17 @@ export function JefaturaIncidentTable({
   }
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl bg-surface-container-lowest shadow-sm border border-surface-container-high/40">
+    <div className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_4px_18px_-4px_rgba(12,45,110,0.06)] border border-slate-200/80">
       {/* Table Header and Bulk Actions Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-container-high/30 p-4 sm:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4 sm:px-6">
         <div className="flex items-center gap-2.5">
-          <Table className="h-5 w-5 text-secondary" />
-          <h2 className="text-base font-black text-on-surface">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-[#0d428e]">
+            <Table className="h-4 w-4" />
+          </div>
+          <h2 className="text-sm font-black text-[#071938] sm:text-base">
             Tabla Maestra de Incidencias Nacionales
           </h2>
-          <span className="rounded-full bg-secondary-fixed px-2.5 py-0.5 text-[10px] font-black uppercase text-on-secondary-fixed">
+          <span className="rounded-full bg-blue-50 border border-blue-200/80 px-2.5 py-0.5 text-[10px] font-black uppercase text-[#0d428e]">
             FEBRERO 2026
           </span>
         </div>
@@ -81,14 +83,14 @@ export function JefaturaIncidentTable({
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-surface-container-low px-3 py-2 text-xs font-bold text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-200/80"
           >
             <Printer className="h-4 w-4" />
             <span>Imprimir Registro</span>
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-secondary px-3 py-2 text-xs font-bold text-on-secondary shadow-xs transition-colors hover:bg-on-secondary-fixed-variant"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#0d428e] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-[#09326e]"
           >
             <FileCheck className="h-4 w-4" />
             <span>Validación Masiva ({selectedIds.length})</span>
@@ -100,7 +102,7 @@ export function JefaturaIncidentTable({
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left text-xs">
           <thead>
-            <tr className="bg-primary text-on-primary font-bold uppercase tracking-wider text-[11px]">
+            <tr className="bg-[#071b3e] text-white font-bold uppercase tracking-wider text-[11px]">
               <th scope="col" className="w-12 px-4 py-3 text-center">
                 <input
                   type="checkbox"

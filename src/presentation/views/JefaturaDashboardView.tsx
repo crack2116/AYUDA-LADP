@@ -204,7 +204,7 @@ export function JefaturaDashboardView() {
       ) : null}
 
       {/* Navigation Tabs Bar */}
-      <section className="overflow-hidden rounded-2xl bg-surface-container-lowest p-2 shadow-sm border border-surface-container-high/40">
+      <section className="overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_4px_18px_-4px_rgba(12,45,110,0.06)] border border-slate-200/80">
         <div
           role="tablist"
           aria-label="Vistas del panel nacional"
@@ -223,10 +223,10 @@ export function JefaturaDashboardView() {
                 aria-selected={active}
                 aria-controls={`panel-${tab.id}`}
                 onClick={() => setActiveTab(tab.id)}
-                className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-xs font-black uppercase tracking-wider transition-all ${
+                className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-black uppercase tracking-wider transition-all ${
                   active
-                    ? "bg-secondary text-on-secondary shadow-sm"
-                    : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+                    ? "bg-[#0d428e] text-white shadow-md shadow-blue-950/20"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-[#0d428e]"
                 }`}
               >
                 <Icon className="h-4 w-4" />
