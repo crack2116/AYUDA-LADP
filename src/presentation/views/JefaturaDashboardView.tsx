@@ -3,35 +3,40 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
-  AlertTriangle,
-  Building2,
-  Clock,
-  Download,
-  House,
-  ShieldCheck,
+  LayoutGrid,
+  ShieldAlert,
+  Users,
 } from "lucide-react";
 
 import type { IncidenciaConCentro } from "@/application/ports/incidencia.repository";
 import type { CentroPoblado } from "@/domain/entities/centro-poblado";
 import type { JefaturaKpis } from "@/domain/entities/kpis";
-import {
-  labelForNecesidad,
-  labelForTipoAfectacion,
-} from "@/domain/entities/incidencia";
-import { USER_ROLE_LABELS } from "@/domain/entities/user";import { isIncidenciaVisible, scopeForUser } from "@/domain/permissions/rbac";
+import { USER_ROLE_LABELS } from "@/domain/entities/user";
+import { isIncidenciaVisible, scopeForUser } from "@/domain/permissions/rbac";
 import { getContainer } from "@/infrastructure/container";
 import { DEMO_USERS } from "@/infrastructure/seed/demo-data";
 
 import { useAppSession } from "@/presentation/components/layout/RoleShell";
+import { JefaturaAnalyticsCharts } from "@/presentation/components/jefatura/JefaturaAnalyticsCharts";
+import { JefaturaFilterBar } from "@/presentation/components/jefatura/JefaturaFilterBar";
+import { JefaturaHeroBanner } from "@/presentation/components/jefatura/JefaturaHeroBanner";
+import { JefaturaIncidentTable } from "@/presentation/components/jefatura/JefaturaIncidentTable";
+import { JefaturaKpiCards } from "@/presentation/components/jefatura/JefaturaKpiCards";
+import { SupervisionMandosTab } from "@/presentation/components/jefatura/SupervisionMandosTab";
 import { downloadTextFile } from "@/presentation/lib/download";
-import { formatCount, formatDateKey } from "@/presentation/lib/format";
+import { formatCount } from "@/presentation/lib/format";
 
-type DashboardTab = "incidencias" | "coordinadores" | "asistentes";
+type DashboardTab = "incidencias" | "supervision" | "coordinadores" | "asistentes";
 
-const TABS: ReadonlyArray<{ id: DashboardTab; label: string }> = [
-  { id: "incidencias", label: "Incidencias nacionales" },
-  { id: "coordinadores", label: "Desempeño de coordinadores" },
-  { id: "asistentes", label: "Actividad de asistentes" },
+const TABS: ReadonlyArray<{
+  id: DashboardTab;
+  label: string;
+  icon: typeof LayoutGrid;
+}> = [
+  { id: "incidencias", label: "Dashboard Nacional", icon: LayoutGrid },
+  { id: "supervision", label: "Supervisión de Mandos", icon: ShieldAlert },
+  { id: "coordinadores", label: "Desempeño de Coordinadores", icon: Users },
+  { id: "asistentes", label: "Actividad de Asistentes", icon: Activity },
 ];
 
 export function JefaturaDashboardView() {
@@ -44,6 +49,13 @@ export function JefaturaDashboardView() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("incidencias");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  // Tactical search & filter bar state
+  const [codeSearch, setCodeSearch] = useState("");
+  const [sectorSearch, setSectorSearch] = useState("");
+  const [selectedRegion, setSelectedRegion] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedTipo, setSelectedTipo] = useState("all");
 
   const load = useCallback(async () => {
     const container = getContainer();
@@ -101,6 +113,51 @@ export function JefaturaDashboardView() {
     [rows],
   );
 
+  const filteredRows = useMemo(() => {
+    return rows.filter(({ incidencia, centroPoblado }) => {
+      if (
+        codeSearch &&
+        !incidencia.codigoAuditoria.toLowerCase().includes(codeSearch.toLowerCase())
+      ) {
+        return false;
+      }
+      if (
+        sectorSearch &&
+        !centroPoblado.nombre.toLowerCase().includes(sectorSearch.toLowerCase()) &&
+        !centroPoblado.sector.toLowerCase().includes(sectorSearch.toLowerCase())
+      ) {
+        return false;
+      }
+      if (
+        selectedRegion !== "all" &&
+        !centroPoblado.region.toLowerCase().includes(selectedRegion.toLowerCase())
+      ) {
+        return false;
+      }
+      if (selectedStatus === "verified" && !incidencia.verificado) {
+        return false;
+      }
+      if (selectedStatus === "pending" && incidencia.verificado) {
+        return false;
+      }
+      if (
+        selectedTipo !== "all" &&
+        incidencia.tipoAfectacion !== selectedTipo
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [rows, codeSearch, sectorSearch, selectedRegion, selectedStatus, selectedTipo]);
+
+  const handleResetFilters = () => {
+    setCodeSearch("");
+    setSectorSearch("");
+    setSelectedRegion("all");
+    setSelectedStatus("all");
+    setSelectedTipo("all");
+  };
+
   const handleExport = async () => {
     setExporting(true);
     setExportError(null);
@@ -117,114 +174,33 @@ export function JefaturaDashboardView() {
   };
 
   return (
-    <div className="space-y-5">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-ladp-cobalt">
-            Jefatura nacional · DINAPROS
-          </p>
-          <h1 className="mt-1 text-2xl font-black tracking-tight text-ladp-navy-dark sm:text-3xl">
-            Panel de situación nacional
-          </h1>
-          <p className="mt-1 text-sm text-ladp-slate">
-            Lectura ejecutiva de las incidencias reportadas por las brigadas.
-          </p>
-        </div>
-        <div className="flex flex-col items-stretch gap-2 sm:items-end">
-          <button
-            type="button"
-            data-testid="export-csv"
-            onClick={() => void handleExport()}
-            disabled={exporting}
-            className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-ladp-cobalt px-4 text-sm font-black text-white hover:bg-ladp-cobalt-light disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Download className="h-4 w-4" aria-hidden={true} />
-            {exporting ? "Exportando…" : "Exportar CSV Nacional"}
-          </button>
-          {exportError ? (
-            <p role="alert" className="text-sm font-semibold text-red-700">
-              {exportError}
-            </p>
-          ) : null}
-        </div>
-      </header>
+    <div className="space-y-6">
+      {/* Institutional Hero Command Banner */}
+      <JefaturaHeroBanner
+        onExportCsv={handleExport}
+        exporting={exporting}
+        exportError={exportError}
+      />
 
       {loadError ? (
-        <p role="alert" className="rounded-xl border border-red-600/30 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+        <p
+          role="alert"
+          className="rounded-2xl border border-red-600/30 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800"
+        >
           {loadError}
         </p>
       ) : null}
 
-      {loading || !kpis ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="h-32 animate-pulse rounded-2xl bg-ladp-surface" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <KpiCard
-            testId="kpi-hogares"
-            label="Total de hogares afectados"
-            value={formatCount(kpis.totalHogaresAfectados)}
-            detail="Suma nacional de hogares reportados"
-            icon={House}
-          />
-          <KpiCard
-            testId="kpi-verificadas"
-            label="Incidencias verificadas"
-            value={formatCount(kpis.incidenciasVerificadas)}
-            detail={`${formatCount(kpis.incidenciasPendientes)} pendientes · ${kpis.porcentajeVerificadas}% del total`}
-            icon={ShieldCheck}
-            progress={kpis.porcentajeVerificadas}
-          />
-          <KpiCard
-            testId="kpi-centros"
-            label="Centros poblados afectados"
-            value={formatCount(kpis.centrosPobladosAfectados)}
-            detail="Centros con al menos un reporte"
-            icon={Building2}
-          />
-          <KpiCard
-            testId="kpi-necesidad"
-            label="Necesidad principal crítica"
-            value={kpis.necesidadPrincipalCritica.label}
-            detail={
-              kpis.necesidadPrincipalCritica.count > 0
-                ? `${formatCount(kpis.necesidadPrincipalCritica.count)} reportes`
-                : "Sin datos"
-            }
-            icon={Activity}
-          />
-          <KpiCard
-            testId="kpi-tipo"
-            label="Tipo de afectación predominante"
-            value={kpis.tipoAfectacionPredominante.label}
-            detail={
-              kpis.tipoAfectacionPredominante.count > 0
-                ? `${formatCount(kpis.tipoAfectacionPredominante.count)} reportes`
-                : "Sin datos"
-            }
-            icon={AlertTriangle}
-          />
-          <KpiCard
-            testId="kpi-ultimas-24h"
-            label="Reportes en las últimas 24h"
-            value={formatCount(kpis.reportesUltimas24h)}
-            detail="Registrados en las últimas 24 horas"
-            icon={Clock}
-          />
-        </div>
-      )}
-
-      <section className="ladp-surface-card overflow-hidden">
+      {/* Navigation Tabs Bar */}
+      <section className="overflow-hidden rounded-2xl bg-surface-container-lowest p-2 shadow-sm border border-surface-container-high/40">
         <div
           role="tablist"
           aria-label="Vistas del panel nacional"
-          className="flex gap-1 overflow-x-auto border-b border-ladp-navy/10 bg-ladp-bg px-2 pt-2"
+          className="flex gap-1.5 overflow-x-auto"
         >
           {TABS.map((tab) => {
             const active = activeTab === tab.id;
+            const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
@@ -235,214 +211,172 @@ export function JefaturaDashboardView() {
                 aria-selected={active}
                 aria-controls={`panel-${tab.id}`}
                 onClick={() => setActiveTab(tab.id)}
-                className={`min-h-11 shrink-0 rounded-t-xl px-4 text-sm font-bold ${
+                className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-xs font-black uppercase tracking-wider transition-all ${
                   active
-                    ? "bg-ladp-surface text-ladp-navy-dark"
-                    : "text-ladp-slate hover:bg-white/60 hover:text-ladp-navy-dark"
+                    ? "bg-secondary text-on-secondary shadow-sm"
+                    : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
                 }`}
               >
-                {tab.label}
+                <Icon className="h-4 w-4" />
+                <span>{tab.label}</span>
               </button>
             );
           })}
         </div>
-
-        <div
-          role="tabpanel"
-          id={`panel-${activeTab}`}
-          aria-labelledby={`tab-${activeTab}`}
-          className="p-4 sm:p-5"
-        >
-          {activeTab === "incidencias" ? (
-            <IncidenciasTable rows={rows} loading={loading} />
-          ) : null}
-
-          {activeTab === "coordinadores" ? (
-            <div className="overflow-x-auto rounded-xl border border-ladp-navy/10">
-              <table className="w-full min-w-[680px] border-collapse text-left text-sm">
-                <caption className="sr-only">Desempeño de coordinadores</caption>
-                <thead className="bg-ladp-bg text-xs uppercase tracking-wide text-ladp-slate">
-                  <tr>
-                    <th scope="col" className="px-3 py-3 font-bold">Coordinador</th>
-                    <th scope="col" className="px-3 py-3 font-bold">Región</th>
-                    <th scope="col" className="px-3 py-3 font-bold">Centros</th>
-                    <th scope="col" className="px-3 py-3 font-bold">Incidencias en su área</th>
-                    <th scope="col" className="px-3 py-3 font-bold">Verificadas</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-ladp-navy/10">
-                  {coordinatorRows.map(({ profile, centros: centroCount, incidencias, verificadas }) => (
-                    <tr key={profile.id}>
-                      <td className="px-3 py-3 font-bold text-ladp-navy-dark">{profile.nombre}</td>
-                      <td className="px-3 py-3 text-ladp-slate">
-                        {profile.teatroOperacionesRegion ?? "Nacional"}
-                      </td>
-                      <td className="px-3 py-3 font-semibold">{centroCount}</td>
-                      <td className="px-3 py-3 font-semibold">{formatCount(incidencias)}</td>
-                      <td className="px-3 py-3 font-semibold">{formatCount(verificadas)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-
-          {activeTab === "asistentes" ? (
-            <div className="overflow-x-auto rounded-xl border border-ladp-navy/10">
-              <table className="w-full min-w-[560px] border-collapse text-left text-sm">
-                <caption className="sr-only">Actividad de asistentes</caption>
-                <thead className="bg-ladp-bg text-xs uppercase tracking-wide text-ladp-slate">
-                  <tr>
-                    <th scope="col" className="px-3 py-3 font-bold">Asistente</th>
-                    <th scope="col" className="px-3 py-3 font-bold">Región</th>
-                    <th scope="col" className="px-3 py-3 font-bold">Reportes creados</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-ladp-navy/10">
-                  {assistantRows.map(({ profile, reportes }) => (
-                    <tr key={profile.id}>
-                      <td className="px-3 py-3 font-bold text-ladp-navy-dark">{profile.nombre}</td>
-                      <td className="px-3 py-3 text-ladp-slate">
-                        {profile.teatroOperacionesRegion ?? "Nacional"}
-                      </td>
-                      <td className="px-3 py-3 font-semibold">{formatCount(reportes)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-        </div>
       </section>
 
-      <p className="text-xs text-ladp-slate">
-        Sesión: {USER_ROLE_LABELS[user.rol]} · Los datos se guardan localmente en este
-        navegador.
-      </p>
-    </div>
-  );
-}
+      {/* Tab Panels */}
+      <div
+        role="tabpanel"
+        id={`panel-${activeTab}`}
+        aria-labelledby={`tab-${activeTab}`}
+        className="space-y-6"
+      >
+        {activeTab === "incidencias" ? (
+          <>
+            {/* KPI Cards Grid */}
+            {loading || !kpis ? (
+              <div
+                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+                aria-busy="true"
+              >
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-32 animate-pulse rounded-2xl bg-surface-container-low"
+                  />
+                ))}
+              </div>
+            ) : (
+              <JefaturaKpiCards kpis={kpis} />
+            )}
 
-function KpiCard({
-  testId,
-  label,
-  value,
-  detail,
-  icon: Icon,
-  progress,
-}: {
-  testId: string;
-  label: string;
-  value: string;
-  detail: string;
-  icon: typeof House;
-  progress?: number;
-}) {
-  return (
-    <article data-testid={testId} className="ladp-surface-card p-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-wide text-ladp-slate">{label}</p>
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ladp-cobalt/10 text-ladp-cobalt">
-          <Icon className="h-5 w-5" aria-hidden={true} />
-        </span>
-      </div>
-      <p className="mt-2 break-words text-2xl font-black leading-tight text-ladp-navy-dark">
-        {value}
-      </p>
-      <p className="mt-1 text-xs font-semibold text-ladp-slate">{detail}</p>
-      {typeof progress === "number" ? (
-        <div className="mt-3">
-          <div
-            className="h-2 w-full overflow-hidden rounded-full bg-ladp-bg"
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={progress}
-            aria-label="Porcentaje de incidencias verificadas"
-          >
-            <div
-              className="h-full rounded-full bg-ladp-orange"
-              style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+            {/* Analytics & Charts (Donut & Regional Bars) */}
+            <JefaturaAnalyticsCharts rows={rows} />
+
+            {/* Tactical Search & Filter Bar */}
+            <JefaturaFilterBar
+              codeSearch={codeSearch}
+              onCodeSearchChange={setCodeSearch}
+              sectorSearch={sectorSearch}
+              onSectorSearchChange={setSectorSearch}
+              selectedRegion={selectedRegion}
+              onRegionChange={setSelectedRegion}
+              selectedStatus={selectedStatus}
+              onStatusChange={setSelectedStatus}
+              selectedTipo={selectedTipo}
+              onTipoChange={setSelectedTipo}
+              filteredCount={filteredRows.length}
+              totalCount={rows.length}
+              onResetFilters={handleResetFilters}
             />
+
+            {/* Tactical Master Incidents Table */}
+            <JefaturaIncidentTable rows={filteredRows} loading={loading} />
+          </>
+        ) : null}
+
+        {activeTab === "supervision" ? (
+          <SupervisionMandosTab />
+        ) : null}
+
+        {activeTab === "coordinadores" ? (
+          <div className="overflow-hidden rounded-2xl bg-surface-container-lowest shadow-sm border border-surface-container-high/40">
+            <div className="border-b border-surface-container-high/20 p-4 sm:px-6">
+              <h3 className="text-base font-black text-on-surface">
+                Desempeño y Cobertura de Coordinadores Zonales
+              </h3>
+              <p className="text-xs text-on-surface-variant font-medium">
+                Supervisión del avance territorial y verificación de reportes por zona asignada.
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[680px] border-collapse text-left text-xs">
+                <caption className="sr-only">Desempeño de coordinadores</caption>
+                <thead className="bg-primary text-on-primary font-bold uppercase tracking-wider text-[11px]">
+                  <tr>
+                    <th scope="col" className="px-4 py-3">Coordinador</th>
+                    <th scope="col" className="px-4 py-3">Región Asignada</th>
+                    <th scope="col" className="px-4 py-3">Centros Poblados</th>
+                    <th scope="col" className="px-4 py-3">Incidencias en Área</th>
+                    <th scope="col" className="px-4 py-3">Verificadas</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-container-high/40 text-on-surface font-medium">
+                  {coordinatorRows.map(
+                    ({ profile, centros: centroCount, incidencias, verificadas }) => (
+                      <tr key={profile.id} className="transition-colors hover:bg-surface-container-low/50">
+                        <td className="px-4 py-3 font-bold text-on-surface">{profile.nombre}</td>
+                        <td className="px-4 py-3 text-on-surface-variant font-bold">
+                          {profile.teatroOperacionesRegion ?? "Nacional"}
+                        </td>
+                        <td className="px-4 py-3 font-mono font-bold text-primary">
+                          {centroCount} centros
+                        </td>
+                        <td className="px-4 py-3 font-mono font-bold text-secondary">
+                          {formatCount(incidencias)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-[11px] font-black uppercase text-green-800">
+                            {formatCount(verificadas)} validadas
+                          </span>
+                        </td>
+                      </tr>
+                    ),
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      ) : null}
-    </article>
-  );
-}
+        ) : null}
 
-function IncidenciasTable({
-  rows,
-  loading,
-}: {
-  rows: readonly IncidenciaConCentro[];
-  loading: boolean;
-}) {
-  if (loading) {
-    return <p className="text-sm text-ladp-slate">Cargando incidencias…</p>;
-  }
-  if (rows.length === 0) {
-    return (
-      <p className="rounded-xl border border-dashed border-ladp-navy/20 px-4 py-4 text-sm text-ladp-slate">
-        Todavía no hay incidencias registradas.
-      </p>
-    );
-  }
+        {activeTab === "asistentes" ? (
+          <div className="overflow-hidden rounded-2xl bg-surface-container-lowest shadow-sm border border-surface-container-high/40">
+            <div className="border-b border-surface-container-high/20 p-4 sm:px-6">
+              <h3 className="text-base font-black text-on-surface">
+                Actividad y Reportes de Asistentes de Brigada
+              </h3>
+              <p className="text-xs text-on-surface-variant font-medium">
+                Registro del personal en campo y volumen de levantamiento de datos por agente.
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] border-collapse text-left text-xs">
+                <caption className="sr-only">Actividad de asistentes</caption>
+                <thead className="bg-primary text-on-primary font-bold uppercase tracking-wider text-[11px]">
+                  <tr>
+                    <th scope="col" className="px-4 py-3">Asistente</th>
+                    <th scope="col" className="px-4 py-3">Región de Despliegue</th>
+                    <th scope="col" className="px-4 py-3">Reportes Creados</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-container-high/40 text-on-surface font-medium">
+                  {assistantRows.map(({ profile, reportes }) => (
+                    <tr key={profile.id} className="transition-colors hover:bg-surface-container-low/50">
+                      <td className="px-4 py-3 font-bold text-on-surface">{profile.nombre}</td>
+                      <td className="px-4 py-3 text-on-surface-variant font-bold">
+                        {profile.teatroOperacionesRegion ?? "Nacional"}
+                      </td>
+                      <td className="px-4 py-3 font-mono font-bold text-secondary">
+                        {formatCount(reportes)} registros
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
-  return (
-    <div className="overflow-x-auto rounded-xl border border-ladp-navy/10">
-      <table className="w-full min-w-[860px] border-collapse text-left text-sm">
-        <caption className="sr-only">Incidencias nacionales</caption>
-        <thead className="bg-ladp-bg text-xs uppercase tracking-wide text-ladp-slate">
-          <tr>
-            <th scope="col" className="px-3 py-3 font-bold">Código</th>
-            <th scope="col" className="px-3 py-3 font-bold">Centro poblado</th>
-            <th scope="col" className="px-3 py-3 font-bold">Tipo</th>
-            <th scope="col" className="px-3 py-3 font-bold">Hogares</th>
-            <th scope="col" className="px-3 py-3 font-bold">Necesidad</th>
-            <th scope="col" className="px-3 py-3 font-bold">Fecha</th>
-            <th scope="col" className="px-3 py-3 font-bold">Verificado</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-ladp-navy/10">
-          {rows.map(({ incidencia, centroPoblado }) => (
-            <tr key={incidencia.id} data-testid="incidencia-row">
-              <td className="whitespace-nowrap px-3 py-3 font-mono text-xs font-bold text-ladp-navy-dark">
-                {incidencia.codigoAuditoria}
-              </td>
-              <td className="px-3 py-3">
-                <span className="block font-bold text-ladp-navy-dark">{centroPoblado.nombre}</span>
-                <span className="block text-xs text-ladp-slate">{centroPoblado.sector}</span>
-              </td>
-              <td className="px-3 py-3 text-ladp-slate">
-                {labelForTipoAfectacion(incidencia.tipoAfectacion)}
-              </td>
-              <td className="px-3 py-3 font-semibold">{formatCount(incidencia.hogaresAfectados)}</td>
-              <td className="px-3 py-3 text-ladp-slate">
-                {labelForNecesidad(incidencia.necesidadPrincipal)}
-              </td>
-              <td className="whitespace-nowrap px-3 py-3 text-ladp-slate">
-                {formatDateKey(incidencia.fechaSuceso)}
-              </td>
-              <td className="px-3 py-3">
-                <VerifiedBadge verified={incidencia.verificado} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-surface-container-high/30 pt-4 text-xs font-medium text-on-surface-variant">
+        <span>
+          Sesión Activa: <strong className="text-on-surface font-bold">{USER_ROLE_LABELS[user.rol]}</strong> ({user.nombre})
+        </span>
+        <span className="font-mono text-[11px]">
+          AYUDA LADP v1.0 • Cache Local Seguro Activo
+        </span>
+      </footer>
     </div>
-  );
-}
-
-function VerifiedBadge({ verified }: { verified: boolean }) {
-  return (
-    <span
-      className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wide ${
-        verified ? "bg-green-100 text-green-800" : "bg-ladp-amber/30 text-ladp-navy-dark"
-      }`}
-    >
-      {verified ? "Verificado" : "Pendiente"}
-    </span>
   );
 }

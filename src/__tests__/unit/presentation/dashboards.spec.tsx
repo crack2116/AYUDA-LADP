@@ -54,6 +54,12 @@ describe("JefaturaDashboardView", () => {
     expect(screen.getByTestId("kpi-centros")).toHaveTextContent("9");
     expect(screen.getByTestId("kpi-ultimas-24h")).toHaveTextContent("3");
 
+    await user.click(screen.getByTestId("tab-supervision"));
+    expect(await screen.findByText("SUPERVISIÓN DE MANDOS Y DESPLIEGUE TERRITORIAL")).toBeInTheDocument();
+    expect(screen.getByText("Jorge Quispe C.")).toBeInTheDocument();
+    expect(screen.getByText("Cuadrante Norte 1 - Piura & Tumbes")).toBeInTheDocument();
+    expect(screen.getByText("Nivel 5: Catástrofe Nacional (Decreto Supremo)")).toBeInTheDocument();
+
     await user.click(screen.getByTestId("tab-coordinadores"));
     expect(await screen.findByText("Rosa Herrera Campos")).toBeInTheDocument();
 
@@ -68,6 +74,100 @@ describe("JefaturaDashboardView", () => {
     await waitFor(() => {
       expect(filenames).toEqual(["incidencias-nacional-2026-11-10.csv"]);
     });
+  });
+
+  it("supports tactical filtering, technical sheet inspection, and supervision controls", async () => {
+    const user = userEvent.setup();
+    await renderForRole("jefatura", <JefaturaDashboardView />);
+
+    await screen.findByText("Panel de situación nacional");
+
+    // Filter by Code
+    const codeInput = screen.getByPlaceholderText("Buscar por Código INC...");
+    await user.type(codeInput, "INC-2026-00001");
+    expect(screen.getAllByTestId("incidencia-row")).toHaveLength(1);
+
+    // Filter by Sector & Tipo
+    const sectorInput = screen.getByPlaceholderText("Centro Poblado / Sector...");
+    await user.type(sectorInput, "Catacaos");
+    expect(screen.getAllByTestId("incidencia-row").length).toBeGreaterThan(0);
+    await user.clear(sectorInput);
+
+    const selects = screen.getAllByRole("combobox");
+    const tipoSelect = selects.find((s) => s.textContent?.includes("Afectación: Todo tipo"));
+    if (tipoSelect) {
+      await user.selectOptions(tipoSelect, "inundacion_pluvial");
+      await user.selectOptions(tipoSelect, "all");
+    }
+
+    const regionSelect = selects.find((s) => s.textContent?.includes("Región: Todas (Nacional)"));
+    if (regionSelect) {
+      await user.selectOptions(regionSelect, "Piura");
+      await user.selectOptions(regionSelect, "all");
+    }
+
+    // Toggle select all checkbox in incident table
+    const selectAllCheckbox = screen.getByLabelText("Seleccionar todas las incidencias");
+    await user.click(selectAllCheckbox);
+    await user.click(selectAllCheckbox);
+
+    // Reset filters
+    await user.click(screen.getByText("Restablecer"));
+    expect(screen.getAllByTestId("incidencia-row")).toHaveLength(9);
+
+    // Filter by status verified
+    const statusSelect = selects.find((s) => (s as HTMLSelectElement).value === "all" && s.textContent?.includes("Todos los estados"));
+    if (statusSelect) {
+      await user.selectOptions(statusSelect, "verified");
+      expect(screen.getAllByTestId("incidencia-row")).toHaveLength(4);
+      await user.selectOptions(statusSelect, "pending");
+      expect(screen.getAllByTestId("incidencia-row")).toHaveLength(5);
+      await user.selectOptions(statusSelect, "all");
+    }
+
+    // Inspect technical sheet modal
+    const viewButtons = screen.getAllByTitle("Ver Ficha Técnica");
+    await user.click(viewButtons[0] as HTMLElement);
+    expect(await screen.findByText("Ficha Técnica de Incidencia")).toBeInTheDocument();
+    await user.click(screen.getByText("Cerrar Ficha"));
+    await waitFor(() => {
+      expect(screen.queryByText("Ficha Técnica de Incidencia")).not.toBeInTheDocument();
+    });
+
+    // Chart view toggle
+    await user.click(screen.getByText("Por Cuenca"));
+    await user.click(screen.getByText("Ámbito Nacional"));
+
+    // Supervision tab controls
+    await user.click(screen.getByTestId("tab-supervision"));
+    await user.click(screen.getByRole("button", { name: /centro/i }));
+    await user.click(screen.getByRole("button", { name: /sur/i }));
+    await user.click(screen.getByRole("button", { name: /oriente/i }));
+    await user.click(screen.getByRole("button", { name: /norte/i }));
+
+    const supSelects = screen.getAllByRole("combobox");
+    const rankSelect = supSelects.find((s) => s.textContent?.includes("Todos los Rangos"));
+    if (rankSelect) {
+      await user.selectOptions(rankSelect, "coronel");
+      expect(screen.getByText("Cnel. Eduardo Salazar R.")).toBeInTheDocument();
+      await user.selectOptions(rankSelect, "mayor");
+      expect(screen.getByText("Mayor Jorge Quispe C.")).toBeInTheDocument();
+      await user.selectOptions(rankSelect, "civil");
+      expect(screen.getByText("Rosa Herrera Campos")).toBeInTheDocument();
+      await user.selectOptions(rankSelect, "all");
+    }
+
+    const supRegionSelect = supSelects.find((s) => s.textContent?.includes("Todas las Regiones"));
+    if (supRegionSelect) {
+      await user.selectOptions(supRegionSelect, "piura");
+      await user.selectOptions(supRegionSelect, "all");
+    }
+
+    const officerSearch = screen.getByPlaceholderText("Buscar oficial o base...");
+    await user.type(officerSearch, "Salazar");
+    expect(screen.getByText("Cnel. Eduardo Salazar R.")).toBeInTheDocument();
+    expect(screen.queryByText("Manuel Vásquez")).not.toBeInTheDocument();
+    await user.clear(officerSearch);
   });
 });
 

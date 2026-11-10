@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { CheckCircle2, LifeBuoy, Send, X } from "lucide-react";
+import { Bot, CheckCircle2, Send, X } from "lucide-react";
 
 import {
   SUPPORT_PROBLEM_OPTIONS,
@@ -96,12 +96,12 @@ export function SupportChatWidget() {
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         onClick={() => setOpen((current) => !current)}
-        className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-ladp-orange text-white shadow-lg shadow-ladp-navy/30 transition-transform hover:scale-105 hover:bg-ladp-orange-light"
+        className="fixed bottom-20 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#ff9a3c] to-[#e05f00] text-white shadow-[0_14px_30px_-10px_rgba(224,95,0,0.75)] ring-4 ring-white/60 transition-transform hover:scale-105 sm:h-14 sm:w-14"
       >
         {open ? (
           <X className="h-6 w-6" aria-hidden={true} />
         ) : (
-          <LifeBuoy className="h-7 w-7" aria-hidden={true} />
+          <Bot className="h-7 w-7" aria-hidden={true} />
         )}
       </button>
 
@@ -113,7 +113,7 @@ export function SupportChatWidget() {
           role="dialog"
           aria-labelledby={titleId}
           aria-modal="false"
-          className="fixed bottom-36 right-4 z-50 flex max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-ladp-navy/15 bg-ladp-surface shadow-2xl shadow-ladp-navy/25"
+          className="fixed bottom-36 right-4 z-50 flex max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl bg-ladp-surface shadow-[0_30px_70px_-24px_rgba(3,11,56,0.45)]"
         >
           <div className="flex items-start justify-between gap-3 bg-ladp-navy px-4 py-3">
             <div>

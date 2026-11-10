@@ -12,7 +12,16 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FilePlus2, Flame, LayoutDashboard, LogOut, ShieldCheck } from "lucide-react";
+import {
+  Calendar,
+  FilePlus2,
+  Flame,
+  LayoutDashboard,
+  Lock,
+  LogOut,
+  MapPin,
+  ShieldCheck,
+} from "lucide-react";
 
 import type { UserProfile, UserRole } from "@/domain/entities/user";
 import { USER_ROLE_LABELS } from "@/domain/entities/user";
@@ -228,6 +237,38 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
           </ul>
         </nav>
 
+        {user.rol === "jefatura" ? (
+          <div className="border-t border-white/10 p-3 bg-white/5">
+            <div className="rounded-xl bg-white/10 p-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#90bafe] opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#d5e3ff]" />
+                  </span>
+                  <span className="text-[10px] font-black text-white uppercase tracking-wider">
+                    SAT-LINK ENLACE
+                  </span>
+                </div>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-white/20 text-[#b2c7f4] uppercase">
+                  ENCR 256B
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-[#b2c7f4] text-[11px]">
+                <span>Estabilidad</span>
+                <span className="font-mono font-bold text-white">99.4%</span>
+              </div>
+              <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-[#d5e3ff] h-full rounded-full" style={{ width: "99.4%" }} />
+              </div>
+              <div className="flex items-center gap-1 text-white/70 text-[10px] font-semibold pt-0.5">
+                <Lock className="h-3 w-3" />
+                <span>Conexión Segura Jefatura</span>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="space-y-2 border-t border-white/10 px-4 py-4">
           <label
             className="block text-xs font-semibold text-white/70"
@@ -257,6 +298,21 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
         <header className="bg-ladp-navy md:border-b md:border-ladp-navy/10 md:bg-ladp-surface">
           <div className="flex items-center justify-between gap-3 px-4 py-3 md:px-6">
             <div className="md:hidden">{brand}</div>
+            {user.rol === "jefatura" ? (
+              <div className="hidden items-center gap-2 md:flex">
+                <span className="inline-flex items-center gap-1 rounded-lg bg-surface-container-low px-2.5 py-1 text-xs font-bold text-on-surface-variant">
+                  <Calendar className="h-3.5 w-3.5 text-secondary" />
+                  FEB 2026
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-lg bg-surface-container-low px-2.5 py-1 text-xs font-bold text-on-surface-variant">
+                  <MapPin className="h-3.5 w-3.5 text-secondary" />
+                  Nivel Nacional (Todas las Regiones)
+                </span>
+                <span className="rounded-lg bg-secondary-fixed/50 px-2.5 py-1 text-xs font-bold text-on-secondary-fixed">
+                  Usuarios Jefatura Activos: 6/6
+                </span>
+              </div>
+            ) : null}
             <div className="ml-auto flex min-w-0 items-center gap-3">
               <div className="min-w-0 text-right">
                 <p className="max-w-[9rem] truncate text-sm font-bold text-white md:max-w-none md:text-ladp-navy-dark">

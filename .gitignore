@@ -47,4 +47,6 @@ next-env.d.ts
 
 .atl/
 *.png
+!public/ad-logo.png
+!public/icons/*.png
 

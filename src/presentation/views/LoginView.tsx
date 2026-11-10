@@ -12,7 +12,6 @@ import {
   EyeOff,
   Headphones,
   Info,
-  KeyRound,
   Loader2,
   Lock,
   LogIn,
@@ -62,61 +61,36 @@ const DEMO_ACCOUNTS: ReadonlyArray<{
 ];
 
 /* =========================================================================
-   ESCUDO VECTORIAL OFICIAL AYUDA LADP (100% SVG - Sin pixelación ni recortes)
+   LOGO OFICIAL DE LAS ASAMBLEAS DE DIOS DEL PERÚ
+   Sobre un disco blanco con aro degradado institucional (azul → naranja).
 ========================================================================== */
-function AyudaLadpShield({ className = "h-14 w-14" }: { className?: string }) {
+function BrandBadge({ className = "h-16 w-16" }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 100 115"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-hidden="true"
+    <div
+      className={`relative shrink-0 rounded-full shadow-[0_12px_26px_-12px_rgba(7,42,94,0.55)] ${className}`}
     >
-      <defs>
-        <linearGradient id="shieldNavyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#1e3a8a" />
-          <stop offset="60%" stopColor="#0a1945" />
-          <stop offset="100%" stopColor="#040e24" />
-        </linearGradient>
-        <linearGradient id="shieldFlameGrad" x1="50%" y1="0%" x2="50%" y2="100%">
-          <stop offset="0%" stopColor="#ff8a00" />
-          <stop offset="50%" stopColor="#f06a00" />
-          <stop offset="100%" stopColor="#d95400" />
-        </linearGradient>
-        <filter id="shieldGlow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#f06a00" floodOpacity="0.3" />
-        </filter>
-      </defs>
-      {/* Contorno exterior del escudo */}
-      <path
-        d="M50 8 C72 16 88 14 90 18 C90 58 78 88 50 108 C22 88 10 58 10 18 C12 14 28 16 50 8 Z"
-        stroke="url(#shieldNavyGrad)"
-        strokeWidth="6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="#FFFFFF"
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 rounded-full"
+        style={{
+          background:
+            "conic-gradient(from 140deg, #072a5e, #1157b0, #2286e0, #f06a00, #e01b1b, #ff9a3c, #072a5e)",
+        }}
       />
-      {/* Contorno interior fino */}
-      <path
-        d="M50 15 C68 22 82 20 84 24 C84 54 74 81 50 99 C26 81 16 54 16 24 C18 20 32 22 50 15 Z"
-        stroke="#E2E8F0"
-        strokeWidth="1.5"
-        fill="none"
+      <div
+        aria-hidden="true"
+        className="absolute inset-[6%] rounded-full bg-white"
       />
-      {/* Gota / Llama central en degradé naranja */}
-      <path
-        d="M50 28 C50 28 32 50 32 66 C32 77 40 85 50 85 C60 85 68 77 68 66 C68 50 50 28 50 28 Z"
-        fill="url(#shieldFlameGrad)"
-        filter="url(#shieldGlow)"
-      />
-      {/* Emblema interior trébol/árbol en azul noche */}
-      <circle cx="50" cy="58" r="4.2" fill="#071b3e" />
-      <circle cx="44" cy="65" r="4.2" fill="#071b3e" />
-      <circle cx="56" cy="65" r="4.2" fill="#071b3e" />
-      <path d="M48.5 64 H51.5 V75 H48.5 Z" fill="#071b3e" />
-      <circle cx="50" cy="71" r="1.8" fill="#FFFFFF" />
-    </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <Image
+          src="/ad-logo.png"
+          alt="Logo de las Asambleas de Dios del Perú"
+          width={270}
+          height={525}
+          className="h-[76%] w-auto"
+        />
+      </div>
+    </div>
   );
 }
 
@@ -198,44 +172,9 @@ export function LoginView() {
           </svg>
         </div>
 
-        {/* Divisor de onda elástico entre paneles */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-20 overflow-hidden xl:w-28 lg:block"
-        >
-          <svg
-            viewBox="0 0 100 1000"
-            preserveAspectRatio="none"
-            className="h-full w-full text-[#f3f6fb]"
-            fill="currentColor"
-          >
-            <path d="M0,0 Q70,280 25,520 T45,1000 L100,1000 L100,0 Z" />
-          </svg>
-        </div>
-
-        {/* Arco inferior en degradado naranja que conecta con la base */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-10 right-0 z-10 hidden h-40 w-80 lg:block"
-        >
-          <svg viewBox="0 0 300 150" className="h-full w-full">
-            <path
-              d="M0,150 Q150,60 300,120 L300,150 Z"
-              fill="#f06a00"
-              className="opacity-90"
-            />
-            <path
-              d="M50,150 Q180,85 300,135 L300,150 Z"
-              fill="#071b3e"
-            />
-          </svg>
-        </div>
-
         {/* 1. Encabezado de Marca y Sistema */}
-        <div className="relative z-20 flex items-start gap-3.5">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-2 shadow-2xl backdrop-blur-md xl:h-14 xl:w-14">
-            <AyudaLadpShield className="h-8 w-8 xl:h-10 xl:w-10" />
-          </div>
+        <div className="relative z-20 flex items-center gap-4">
+          <BrandBadge className="h-16 w-16 xl:h-18 xl:w-18" />
           <div>
             <div className="text-xl font-black tracking-tight text-white xl:text-2xl">
               AYUDA <span className="text-[#f06a00]">LADP</span>
@@ -244,46 +183,48 @@ export function LoginView() {
               Red Nacional de Alertas Humanitarias
             </p>
             <p className="text-[11px] font-medium text-white/70">
-              Comprometidos con la comunidad
+              Asambleas de Dios del Perú · Comprometidos con la comunidad
             </p>
-            <div className="mt-1 h-[2px] w-20 rounded-full bg-[#f06a00]" />
           </div>
         </div>
 
         {/* 2. Lema Central de Misión e Insignias */}
-        <div className="relative z-20 my-auto py-4 pr-16 xl:pr-24">
-          <h2 className="max-w-xl text-3xl font-extrabold leading-tight text-white xl:text-4xl 2xl:text-5xl">
-            Juntos por una{" "}
-            <span className="text-[#f06a00]">respuesta</span> más rápida
+        <div className="relative z-20 my-auto py-6 pr-10 xl:pr-16">
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#ffb800]">
+            Gestión de emergencias
+          </p>
+          <h2 className="mt-3 max-w-xl text-3xl font-extrabold leading-[1.1] text-white xl:text-4xl 2xl:text-5xl">
+            Juntos por una <span className="text-[#f06a00]">respuesta</span> más rápida
           </h2>
-          <p className="mt-3 text-sm font-medium italic text-white/85 xl:text-base">
-            Prevenir, alertar y asistir, nuestra misión
+          <p className="mt-4 max-w-md text-sm font-medium leading-relaxed text-white/80 xl:text-base">
+            Prevenir, alertar y asistir: nuestra misión es que ninguna familia damnificada
+            quede sin respuesta.
           </p>
 
-          {/* Tres botones de insignias de características con diseño responsivo */}
-          <div className="mt-8 flex flex-wrap items-center gap-6 xl:gap-8">
-            <div className="flex flex-col items-center text-center">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-white/10 shadow-lg backdrop-blur-md transition-transform hover:scale-105 xl:h-12 xl:w-12">
-                <Zap className="h-5 w-5 text-white" />
-              </span>
-              <span className="mt-2 text-[11px] font-medium leading-tight text-white/90 xl:text-xs">
-                Alertas<br />en tiempo real
-              </span>
-            </div>
-            <div className="flex flex-col items-center text-center">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-white/10 shadow-lg backdrop-blur-md transition-transform hover:scale-105 xl:h-12 xl:w-12">
-                <Users className="h-5 w-5 text-white" />
-              </span>
-              <span className="mt-2 text-[11px] font-medium leading-tight text-white/90 xl:text-xs">
-                Coordinación<br />efectiva
+          {/* Tres insignias de características */}
+          <div className="mt-9 flex flex-wrap items-stretch gap-3 xl:gap-4">
+            <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 backdrop-blur-md transition-transform hover:scale-[1.03]">
+              <Zap className="h-5 w-5 shrink-0 text-[#ffb800]" />
+              <span className="text-xs font-semibold leading-tight text-white/95 xl:text-[13px]">
+                Alertas en
+                <br />
+                tiempo real
               </span>
             </div>
-            <div className="flex flex-col items-center text-center">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-white/10 shadow-lg backdrop-blur-md transition-transform hover:scale-105 xl:h-12 xl:w-12">
-                <Shield className="h-5 w-5 text-white" />
+            <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 backdrop-blur-md transition-transform hover:scale-[1.03]">
+              <Users className="h-5 w-5 shrink-0 text-[#ffb800]" />
+              <span className="text-xs font-semibold leading-tight text-white/95 xl:text-[13px]">
+                Coordinación
+                <br />
+                efectiva
               </span>
-              <span className="mt-2 text-[11px] font-medium leading-tight text-white/90 xl:text-xs">
-                Protección<br />a la comunidad
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3 backdrop-blur-md transition-transform hover:scale-[1.03]">
+              <Shield className="h-5 w-5 shrink-0 text-[#ffb800]" />
+              <span className="text-xs font-semibold leading-tight text-white/95 xl:text-[13px]">
+                Protección a
+                <br />
+                la comunidad
               </span>
             </div>
           </div>
@@ -299,12 +240,12 @@ export function LoginView() {
             </span>
             <span>Perú</span>
           </div>
-          <span className="h-3 w-[1px] bg-white/30" />
+          <span className="h-1 w-1 rounded-full bg-white/40" />
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
             <span>Sistema seguro y confiable</span>
           </div>
-          <span className="h-3 w-[1px] bg-white/30" />
+          <span className="h-1 w-1 rounded-full bg-white/40" />
           <div className="flex items-center gap-1.5">
             <Headphones className="h-4 w-4 text-amber-300" />
             <span>Soporte 24/7</span>
@@ -320,47 +261,35 @@ export function LoginView() {
       {/* =========================================================================
           PANEL DERECHO: Tarjeta Flotante Adaptada, Elegante y Totalmente Funcional
       ========================================================================== */}
-      <section className="relative flex h-full min-h-screen flex-col items-center justify-center overflow-y-auto px-4 py-4 pb-20 sm:px-6 lg:min-h-0 lg:py-4">
+      <section className="relative flex h-full min-h-screen flex-col items-center justify-center overflow-y-auto bg-white px-5 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(9rem,env(safe-area-inset-bottom))] sm:px-8 lg:min-h-0 lg:py-6">
         {/* Patrón de cuadrícula de puntos superior derecha */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute right-3 top-3 h-36 w-36 opacity-30"
+          className="pointer-events-none absolute right-3 top-3 hidden h-32 w-32 opacity-20 sm:block"
           style={{
             backgroundImage: "radial-gradient(#94a3b8 1.5px, transparent 1.5px)",
             backgroundSize: "13px 13px",
           }}
         />
 
-        {/* Esquina geométrica inferior derecha */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none fixed -bottom-4 -right-4 z-0 h-28 w-28 opacity-90 sm:h-36 sm:w-36"
-        >
-          <svg viewBox="0 0 100 100" className="h-full w-full">
-            <polygon points="100,0 100,100 0,100" fill="#071b3e" />
-            <polygon points="100,28 100,100 28,100" fill="#f06a00" />
-            <polygon points="100,58 100,100 58,100" fill="#030b38" />
-          </svg>
-        </div>
-
-        {/* Tarjeta de Inicio de Sesión */}
-        <div className="relative z-10 w-full max-w-[460px] rounded-[2rem] border border-slate-200/90 bg-white p-5 shadow-2xl shadow-blue-950/10 sm:p-7">
-          <h2 className="sr-only">Acceso Institucional</h2>
+        {/* Columna del formulario: sin tarjeta, sin bordes, sin líneas */}
+        <div className="relative z-10 w-full max-w-[430px]">
 
           {/* Escudo Oficial Vectorial y Título */}
           <div className="flex flex-col items-center text-center">
-            <AyudaLadpShield className="h-13 w-13 drop-shadow-sm" />
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-[#071b3e] sm:text-3xl">
+            <BrandBadge className="h-24 w-24" />
+            <h1 className="mt-4 text-[27px] font-black tracking-tight text-[#071b3e] sm:text-3xl">
               AYUDA <span className="text-[#f06a00]">LADP</span>
             </h1>
-            <p className="mt-1 text-xs font-semibold text-slate-700">
+            <p className="mt-1 text-xs font-semibold text-slate-600">
               Sistema de Alertas y Respuesta Humanitaria
             </p>
-            <div className="mt-1 flex items-center justify-center gap-2 text-[11px] font-medium text-slate-500">
-              <span className="h-[1px] w-6 bg-slate-300" />
-              <span>Fenómeno El Niño 2025</span>
-              <span className="h-[1px] w-6 bg-slate-300" />
-            </div>
+            <h2 className="mt-3 text-[11px] font-bold uppercase tracking-[0.18em] text-[#1d63d8]">
+              Acceso Institucional
+            </h2>
+            <p className="mt-1 text-[11px] font-medium tracking-wide text-slate-400">
+              Fenómeno El Niño
+            </p>
           </div>
 
           {/* Formulario */}
@@ -397,7 +326,7 @@ export function LoginView() {
                   aria-describedby={
                     errors.identificadorOficial ? "login-identifier-error" : undefined
                   }
-                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-slate-800 placeholder:text-slate-400 shadow-sm transition-all focus:border-[#1d63d8] focus:outline-none focus:ring-4 focus:ring-[#1d63d8]/15 aria-invalid:border-red-600"
+                  className="min-h-12 w-full rounded-2xl bg-[#f2f6fc] py-2.5 pl-10 pr-4 text-sm font-medium text-slate-800 placeholder:text-slate-500 transition-all focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#1d63d8]/20 aria-invalid:bg-red-50 aria-invalid:ring-2 aria-invalid:ring-red-500/50"
                   {...register("identificadorOficial")}
                 />
               </div>
@@ -444,7 +373,7 @@ export function LoginView() {
                   aria-describedby={
                     errors.claveOperacional ? "login-password-error" : undefined
                   }
-                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-10 text-sm font-medium text-slate-800 placeholder:text-slate-400 shadow-sm transition-all focus:border-[#1d63d8] focus:outline-none focus:ring-4 focus:ring-[#1d63d8]/15 aria-invalid:border-red-600"
+                  className="min-h-12 w-full rounded-2xl bg-[#f2f6fc] py-2.5 pl-10 pr-10 text-sm font-medium text-slate-800 placeholder:text-slate-500 transition-all focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#1d63d8]/20 aria-invalid:bg-red-50 aria-invalid:ring-2 aria-invalid:ring-red-500/50"
                   {...register("claveOperacional")}
                 />
                 <button
@@ -497,7 +426,7 @@ export function LoginView() {
                   aria-describedby={
                     errors.jurisdiccion ? "login-jurisdiction-error" : undefined
                   }
-                  className="min-h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-9 text-sm font-medium text-slate-800 shadow-sm transition-all focus:border-[#1d63d8] focus:outline-none focus:ring-4 focus:ring-[#1d63d8]/15 aria-invalid:border-red-600"
+                  className="min-h-12 w-full appearance-none rounded-2xl bg-[#f2f6fc] py-2.5 pl-10 pr-9 text-sm font-medium text-slate-800 transition-all focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#1d63d8]/20 aria-invalid:bg-red-50 aria-invalid:ring-2 aria-invalid:ring-red-500/50"
                   {...register("jurisdiccion")}
                 >
                   <option value="nacional">Nivel Nacional - Jefatura</option>
@@ -527,7 +456,7 @@ export function LoginView() {
                 data-testid="login-keep-session"
                 type="checkbox"
                 defaultChecked={true}
-                className="h-4 w-4 rounded border-slate-300 text-[#1d63d8] accent-[#1d63d8] focus:ring-[#1d63d8]"
+                className="h-4 w-4 cursor-pointer rounded-[5px] accent-[#1d63d8]"
                 {...register("mantenerSesion")}
               />
               <label
@@ -543,7 +472,7 @@ export function LoginView() {
               <div
                 data-testid="login-error"
                 role="alert"
-                className="rounded-xl border border-red-500/30 bg-red-50 p-2.5 text-xs font-semibold text-red-700"
+                className="rounded-2xl bg-red-50 p-3 text-xs font-semibold text-red-700"
               >
                 {serverError}
               </div>
@@ -554,81 +483,72 @@ export function LoginView() {
               type="submit"
               data-testid="login-submit"
               disabled={isSubmitting}
-              className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#f06a00] px-4 py-3 text-sm font-extrabold text-white shadow-lg shadow-orange-500/25 transition-all hover:bg-[#ff7a00] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:text-base"
+              className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#f06a00] to-[#ff8f2b] px-4 py-3 text-sm font-extrabold text-white shadow-[0_16px_34px_-14px_rgba(240,106,0,0.8)] transition-all hover:from-[#ff7a00] hover:to-[#ffa244] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:text-base"
             >
               {isSubmitting ? (
                 <Loader2 className="h-4.5 w-4.5 animate-spin" />
               ) : (
                 <LogIn className="h-4.5 w-4.5" />
               )}
-              <span>{isSubmitting ? "Ingresando…" : "Ingresar al Sistema"}</span>
+              <span>{isSubmitting ? "Ingresando⬦" : "Ingresar al Sistema"}</span>
             </button>
           </form>
 
-          {/* Separador de opciones adicionales */}
-          <div className="relative my-3 flex items-center justify-center">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200" />
-            </div>
-            <span className="relative bg-white px-2.5 text-[11px] font-semibold text-slate-400">
-              Opciones adicionales
-            </span>
-          </div>
-
-          {/* Tres botones de acciones complementarias */}
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+          {/* Tres acciones complementarias: enlaces fantasma, sin cajas ni bordes */}
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
             <button
               type="button"
               onClick={requestOpenSupportChat}
-              className="flex min-h-9 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-slate-50/70 px-1.5 py-1.5 text-[11px] font-bold text-slate-700 transition-colors hover:bg-slate-100"
+              className="inline-flex min-h-8 items-center gap-1.5 text-[11px] font-bold text-slate-500 transition-colors hover:text-[#1d63d8]"
             >
-              <UserPlus className="h-3 w-3 shrink-0 text-slate-600 sm:h-3.5 sm:w-3.5" />
-              <span className="truncate">Crear Cuenta</span>
+              <UserPlus className="h-3.5 w-3.5 shrink-0" />
+              <span>Crear Cuenta</span>
             </button>
             <button
               type="button"
               onClick={requestOpenSupportChat}
-              className="flex min-h-9 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-slate-50/70 px-1.5 py-1.5 text-[11px] font-bold text-slate-700 transition-colors hover:bg-slate-100"
+              className="inline-flex min-h-8 items-center gap-1.5 text-[11px] font-bold text-slate-500 transition-colors hover:text-[#1d63d8]"
             >
-              <Lock className="h-3 w-3 shrink-0 text-slate-600 sm:h-3.5 sm:w-3.5" />
-              <span className="truncate">Olvidé Clave</span>
+              <Lock className="h-3.5 w-3.5 shrink-0" />
+              <span>Olvidé Clave</span>
             </button>
             <button
               type="button"
               data-testid="login-support"
               onClick={requestOpenSupportChat}
-              className="flex min-h-9 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-slate-50/70 px-1.5 py-1.5 text-[11px] font-bold text-slate-700 transition-colors hover:bg-slate-100"
+              className="inline-flex min-h-8 items-center gap-1.5 text-[11px] font-bold text-slate-500 transition-colors hover:text-[#1d63d8]"
             >
-              <Headphones className="h-3 w-3 shrink-0 text-slate-600 sm:h-3.5 sm:w-3.5" />
-              <span className="truncate">Soporte</span>
+              <Headphones className="h-3.5 w-3.5 shrink-0" />
+              <span>Soporte</span>
             </button>
           </div>
 
-          {/* Píldora inferior de seguridad y confianza */}
-          <div className="mt-3 flex items-center justify-center">
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-200/60 bg-[#ebf3ff] px-3.5 py-1 text-[11px] font-semibold text-[#1d63d8]">
-              <Info className="h-3.5 w-3.5 text-[#1d63d8]" />
-              <span>AYUDA LADP | Sistema Seguro y Confiable</span>
-            </div>
+          {/* Nota inferior de seguridad y confianza */}
+          <div className="mt-5 flex items-center justify-center gap-1.5 text-[11px] font-medium text-slate-400">
+            <Info className="h-3.5 w-3.5" />
+            <span>AYUDA LADP | Sistema Seguro y Confiable</span>
           </div>
+
         </div>
 
-        {/* Barra de accesos directos de demostración */}
-        <div className="relative z-10 mt-2.5 w-full max-w-[460px] rounded-xl border border-dashed border-slate-300 bg-white/85 px-3 py-1.5 shadow-sm backdrop-blur-sm">
+        {/* Accesos de demostración: sin tarjeta ni borde, solo separación */}
+        <div className="relative z-10 mt-8 w-full max-w-[430px] pr-12 sm:pr-0">
           <div className="flex items-center justify-between gap-2 px-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
               Accesos de prueba · Clave {DEMO_PASSWORD}
             </span>
-            <span className="text-[9px] font-semibold text-slate-400">Clic para rellenar</span>
+            <span className="hidden text-[10px] font-medium text-slate-400 sm:inline">
+              Clic para rellenar
+            </span>
           </div>
-          <div className="mt-1 grid grid-cols-3 gap-1.5">
+          <div className="mt-2 grid grid-cols-3 gap-2">
             {DEMO_ACCOUNTS.map((account) => (
               <button
                 key={account.identificadorOficial}
                 type="button"
                 data-testid={account.testId}
                 onClick={() => fillDemo(account)}
-                className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white px-2 py-1 text-center transition-all hover:border-[#1d63d8] hover:bg-blue-50/40"
+                className="flex flex-col items-center justify-center rounded-xl bg-[#f2f6fc] px-2 py-2 text-center transition-colors hover:bg-[#e4eefb]"
               >
                 <span className="font-mono text-xs font-extrabold text-[#071b3e]">
                   {account.label}
