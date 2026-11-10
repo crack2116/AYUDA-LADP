@@ -60,6 +60,12 @@ describe("JefaturaDashboardView", () => {
     expect(screen.getByText("Cuadrante Norte 1 - Piura & Tumbes")).toBeInTheDocument();
     expect(screen.getByText("Nivel 5: Catástrofe Nacional (Decreto Supremo)")).toBeInTheDocument();
 
+    await user.click(screen.getByTestId("tab-campo"));
+    expect(await screen.findByText("INCIDENCIAS DE CAMPO – MONITOREO GEOESPACIAL Y MAPA DE CALOR")).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("tab-registro"));
+    expect(await screen.findByText("REGISTRO TÁCTICO DE INCIDENCIA DE CAMPO")).toBeInTheDocument();
+
     await user.click(screen.getByTestId("tab-coordinadores"));
     expect(await screen.findByText("Rosa Herrera Campos")).toBeInTheDocument();
 

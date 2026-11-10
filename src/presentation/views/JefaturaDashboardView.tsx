@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
+  ClipboardCheck,
   LayoutGrid,
+  Radar,
   ShieldAlert,
   Users,
 } from "lucide-react";
@@ -17,16 +19,24 @@ import { getContainer } from "@/infrastructure/container";
 import { DEMO_USERS } from "@/infrastructure/seed/demo-data";
 
 import { useAppSession } from "@/presentation/components/layout/RoleShell";
+import { IncidenciasCampoTab } from "@/presentation/components/jefatura/IncidenciasCampoTab";
 import { JefaturaAnalyticsCharts } from "@/presentation/components/jefatura/JefaturaAnalyticsCharts";
 import { JefaturaFilterBar } from "@/presentation/components/jefatura/JefaturaFilterBar";
 import { JefaturaHeroBanner } from "@/presentation/components/jefatura/JefaturaHeroBanner";
 import { JefaturaIncidentTable } from "@/presentation/components/jefatura/JefaturaIncidentTable";
 import { JefaturaKpiCards } from "@/presentation/components/jefatura/JefaturaKpiCards";
+import { RegistroTacticoTab } from "@/presentation/components/jefatura/RegistroTacticoTab";
 import { SupervisionMandosTab } from "@/presentation/components/jefatura/SupervisionMandosTab";
 import { downloadTextFile } from "@/presentation/lib/download";
 import { formatCount } from "@/presentation/lib/format";
 
-type DashboardTab = "incidencias" | "supervision" | "coordinadores" | "asistentes";
+type DashboardTab =
+  | "incidencias"
+  | "supervision"
+  | "campo"
+  | "registro"
+  | "coordinadores"
+  | "asistentes";
 
 const TABS: ReadonlyArray<{
   id: DashboardTab;
@@ -35,6 +45,8 @@ const TABS: ReadonlyArray<{
 }> = [
   { id: "incidencias", label: "Dashboard Nacional", icon: LayoutGrid },
   { id: "supervision", label: "Supervisión de Mandos", icon: ShieldAlert },
+  { id: "campo", label: "Incidencias de Campo", icon: Radar },
+  { id: "registro", label: "Registro Táctico", icon: ClipboardCheck },
   { id: "coordinadores", label: "Desempeño de Coordinadores", icon: Users },
   { id: "asistentes", label: "Actividad de Asistentes", icon: Activity },
 ];
@@ -278,6 +290,14 @@ export function JefaturaDashboardView() {
 
         {activeTab === "supervision" ? (
           <SupervisionMandosTab />
+        ) : null}
+
+        {activeTab === "campo" ? (
+          <IncidenciasCampoTab />
+        ) : null}
+
+        {activeTab === "registro" ? (
+          <RegistroTacticoTab />
         ) : null}
 
         {activeTab === "coordinadores" ? (
