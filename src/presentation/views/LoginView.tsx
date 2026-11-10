@@ -1,19 +1,24 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  ArrowRight,
+  ChevronDown,
+  Contact,
   Eye,
   EyeOff,
-  Flame,
+  Headphones,
+  KeyRound,
   Loader2,
-  RadioTower,
-  Shield,
+  Lock,
+  LogIn,
+  MapPin,
+  Scale,
   ShieldCheck,
-  Users,
+  UserPlus,
 } from "lucide-react";
 
 import { loginSchema, type LoginFormValues } from "@/domain/schemas/login.schema";
@@ -51,12 +56,6 @@ const DEMO_ACCOUNTS: ReadonlyArray<{
     description: "Brigada de campo",
   },
 ];
-
-const FEATURES = [
-  { icon: RadioTower, label: "Alertas en tiempo real" },
-  { icon: Users, label: "Coordinación efectiva" },
-  { icon: Shield, label: "Protección a la comunidad" },
-] as const;
 
 export function LoginView() {
   const router = useRouter();
@@ -98,86 +97,111 @@ export function LoginView() {
   };
 
   return (
-    <div className="min-h-screen bg-ladp-bg lg:grid lg:grid-cols-[1.05fr_1fr]">
-      <section className="relative overflow-hidden bg-ladp-navy px-5 py-10 sm:px-10 lg:flex lg:min-h-screen lg:flex-col lg:justify-center lg:px-14 lg:py-16">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full border border-white/10"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-32 -left-20 h-80 w-80 rounded-full border border-ladp-cobalt-light/40"
-        />
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-[#eef3f9] lg:grid lg:grid-cols-[1fr_1.18fr]">
+      {/* =========================================================================
+          PANEL IZQUIERDO: Hero Visual con Brigadista, Logos y Acentos Gráficos
+      ========================================================================== */}
+      <section className="relative hidden min-h-screen overflow-hidden bg-[#07183e] lg:block">
+        <div className="absolute inset-0">
+          <Image
+            src="/login-hero-clean.jpg"
+            alt="Brigadista humanitario AYUDA LADP en campo"
+            fill
+            priority
+            className="object-cover object-center"
+          />
+        </div>
 
-        <div className="relative mx-auto w-full max-w-lg">
-          <div className="flex items-center gap-4">
-            <span className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-ladp-cobalt shadow-lg shadow-black/30">
-              <ShieldCheck className="h-9 w-9 text-white" aria-hidden={true} />
-              <Flame
-                className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full bg-ladp-navy-dark p-1 text-ladp-orange"
-                aria-hidden={true}
-              />
-            </span>
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-ladp-amber">
-              DINAPROS · Perú
-            </p>
-          </div>
-
-          <h1 className="mt-8 text-5xl font-black leading-none tracking-tight text-white sm:text-6xl">
-            AYUDA LADP
-          </h1>
-          <p className="mt-4 max-w-md text-lg font-semibold leading-snug text-white/85">
-            Sistema de Alertas y Respuesta Humanitaria
-          </p>
-          <p className="mt-3 inline-block rounded-full border border-ladp-orange/50 bg-ladp-orange/10 px-4 py-1.5 text-sm font-bold text-ladp-amber">
-            Juntos por una respuesta más rápida
-          </p>
-
-          <ul className="mt-10 space-y-3">
-            {FEATURES.map((feature) => {
-              const Icon = feature.icon;
-              return (
-                <li
-                  key={feature.label}
-                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ladp-cobalt text-white">
-                    <Icon className="h-5 w-5" aria-hidden={true} />
-                  </span>
-                  <span className="text-sm font-semibold text-white">{feature.label}</span>
-                </li>
-              );
-            })}
-          </ul>
+        {/* Textos semánticos accesibles para lectores de pantalla y testing */}
+        <div className="sr-only">
+          <p>AYUDA LADP</p>
+          <p>Sistema de Alertas y Respuesta Humanitaria</p>
+          <p>Fenómeno El Niño 2025</p>
+          <span>DINAPROS · Perú</span>
+          <p>Juntos por una respuesta más rápida</p>
+          <p>&ldquo;Prevenir, alertar y asistir, nuestra misión&rdquo;</p>
+          <p>Alertas en tiempo real</p>
+          <p>Coordinación efectiva</p>
+          <p>Protección a la comunidad</p>
         </div>
       </section>
 
-      <section className="flex items-center justify-center px-4 py-10 sm:px-8 lg:min-h-screen lg:py-16">
-        <div className="w-full max-w-md">
-          <div className="ladp-surface-card p-5 sm:p-7">
-            <h2 className="text-2xl font-black tracking-tight text-ladp-navy-dark">
-              Acceso Institucional
-            </h2>
-            <p className="mt-1 text-sm text-ladp-slate">
-              Ingresa con tus credenciales oficiales de brigada.
-            </p>
+      {/* =========================================================================
+          PANEL DERECHO: Tarjeta Flotante de Acceso Institucional
+      ========================================================================== */}
+      <section className="relative flex min-h-screen flex-col items-center justify-center px-4 py-8 pb-28 sm:px-6 lg:px-10">
+        {/* Patrón de puntos decorativo en la esquina superior derecha */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute right-4 top-4 h-44 w-44 opacity-40"
+          style={{
+            backgroundImage: "radial-gradient(#94a3b8 1.5px, transparent 1.5px)",
+            backgroundSize: "14px 14px",
+          }}
+        />
 
-            <form className="mt-6 space-y-5" onSubmit={onSubmit} noValidate>
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <label
-                    htmlFor="login-identifier"
-                    className="text-sm font-bold text-ladp-navy-dark"
-                  >
-                    Identificador Oficial
-                  </label>
-                  <button
-                    type="button"
-                    onClick={requestOpenSupportChat}
-                    className="inline-flex min-h-11 items-center text-sm font-bold text-ladp-cobalt underline underline-offset-4 hover:text-ladp-orange"
-                  >
-                    ¿Crear Cuenta?
-                  </button>
+        {/* Franjas geométricas naranja y azul en la esquina inferior derecha */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed -bottom-6 -right-6 z-0 h-32 w-32 sm:h-40 sm:w-40"
+        >
+          <svg viewBox="0 0 100 100" className="h-full w-full">
+            <polygon points="100,0 100,100 0,100" fill="#071b3e" />
+            <polygon points="100,25 100,100 25,100" fill="#f06a00" />
+            <polygon points="100,55 100,100 55,100" fill="#030b38" />
+          </svg>
+        </div>
+
+        {/* Tarjeta de Login Principal */}
+        <div className="relative z-10 w-full max-w-[490px] rounded-[2rem] border border-slate-200/80 bg-white p-7 shadow-2xl shadow-blue-950/10 sm:p-9">
+          {/* Encabezado accesible requerido por specs de testing */}
+          <h2 className="sr-only">Acceso Institucional</h2>
+
+          {/* Logo, Título y Línea Naranja Central */}
+          <div className="flex flex-col items-center text-center">
+            <div className="relative h-18 w-20">
+              <Image
+                src="/ayuda-ladp-shield-logo.png"
+                alt="Escudo Oficial AYUDA LADP"
+                width={80}
+                height={72}
+                priority
+                className="h-full w-auto object-contain"
+              />
+            </div>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-[#071b3e] sm:text-4xl">
+              AYUDA <span className="text-[#f06a00]">LADP</span>
+            </h1>
+            <div className="mt-2 h-[2.5px] w-full max-w-[340px] rounded-full bg-[#f06a00]" />
+            <p className="mt-2 text-xs font-semibold text-slate-700 sm:text-[13px]">
+              Sistema de Alertas y Respuesta Humanitaria - Fenómeno El Niño 2025
+            </p>
+          </div>
+
+          {/* Formulario */}
+          <form className="mt-6 space-y-4 sm:space-y-5" onSubmit={onSubmit} noValidate>
+            {/* Campo 1: Identificador Oficial */}
+            <div>
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="login-identifier"
+                  className="flex items-center gap-1.5 text-xs font-bold text-[#071b3e] sm:text-sm"
+                >
+                  <Contact className="h-4 w-4 text-[#071b3e]" />
+                  <span>Identificador Oficial</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={requestOpenSupportChat}
+                  className="inline-flex min-h-8 items-center gap-1 text-xs font-bold text-[#1d63d8] hover:text-[#002296] hover:underline sm:text-sm"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  <span>¿Crear Cuenta?</span>
+                </button>
+              </div>
+              <div className="relative mt-1.5">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-700">
+                  <Contact className="h-5 w-5 text-[#071b3e]" />
                 </div>
                 <input
                   id="login-identifier"
@@ -189,82 +213,100 @@ export function LoginView() {
                   aria-describedby={
                     errors.identificadorOficial ? "login-identifier-error" : undefined
                   }
-                  className="mt-2 min-h-12 w-full rounded-xl border border-ladp-navy/20 bg-white px-4 text-base text-ladp-navy-dark placeholder:text-ladp-slate-light aria-invalid:border-red-600"
+                  className="min-h-12 w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm font-medium text-slate-800 placeholder:text-slate-400 shadow-sm transition-all focus:border-[#1d63d8] focus:outline-none focus:ring-2 focus:ring-[#1d63d8]/20 aria-invalid:border-red-600"
                   {...register("identificadorOficial")}
                 />
-                {errors.identificadorOficial ? (
-                  <p
-                    id="login-identifier-error"
-                    role="alert"
-                    className="mt-1.5 text-sm font-semibold text-red-700"
-                  >
-                    {errors.identificadorOficial.message}
-                  </p>
-                ) : null}
               </div>
-
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <label
-                    htmlFor="login-password"
-                    className="text-sm font-bold text-ladp-navy-dark"
-                  >
-                    Clave Operacional
-                  </label>
-                  <button
-                    type="button"
-                    onClick={requestOpenSupportChat}
-                    className="inline-flex min-h-11 items-center text-sm font-bold text-ladp-cobalt underline underline-offset-4 hover:text-ladp-orange"
-                  >
-                    ¿Olvidó su Contraseña?
-                  </button>
-                </div>
-                <div className="relative mt-2">
-                  <input
-                    id="login-password"
-                    data-testid="login-password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    aria-invalid={Boolean(errors.claveOperacional)}
-                    aria-describedby={
-                      errors.claveOperacional ? "login-password-error" : undefined
-                    }
-                    className="min-h-12 w-full rounded-xl border border-ladp-navy/20 bg-white px-4 pr-14 text-base text-ladp-navy-dark aria-invalid:border-red-600"
-                    {...register("claveOperacional")}
-                  />
-                  <button
-                    type="button"
-                    data-testid="login-password-toggle"
-                    onClick={() => setShowPassword((current) => !current)}
-                    aria-label={showPassword ? "Ocultar clave operacional" : "Mostrar clave operacional"}
-                    aria-pressed={showPassword}
-                    className="absolute inset-y-0 right-0 flex min-h-11 min-w-11 items-center justify-center rounded-r-xl px-3 text-ladp-slate hover:text-ladp-cobalt"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" aria-hidden={true} />
-                    ) : (
-                      <Eye className="h-5 w-5" aria-hidden={true} />
-                    )}
-                  </button>
-                </div>
-                {errors.claveOperacional ? (
-                  <p
-                    id="login-password-error"
-                    role="alert"
-                    className="mt-1.5 text-sm font-semibold text-red-700"
-                  >
-                    {errors.claveOperacional.message}
-                  </p>
-                ) : null}
-              </div>
-
-              <div>
-                <label
-                  htmlFor="login-jurisdiction"
-                  className="text-sm font-bold text-ladp-navy-dark"
+              {errors.identificadorOficial ? (
+                <p
+                  id="login-identifier-error"
+                  role="alert"
+                  className="mt-1 text-xs font-semibold text-red-600"
                 >
-                  Jurisdicción / Teatro de Operaciones
+                  {errors.identificadorOficial.message}
+                </p>
+              ) : null}
+            </div>
+
+            {/* Campo 2: Clave Operacional */}
+            <div>
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="login-password"
+                  className="flex items-center gap-1.5 text-xs font-bold text-[#071b3e] sm:text-sm"
+                >
+                  <Lock className="h-4 w-4 text-[#071b3e]" />
+                  <span>Clave Operacional</span>
                 </label>
+                <button
+                  type="button"
+                  onClick={requestOpenSupportChat}
+                  className="inline-flex min-h-8 items-center gap-1 text-xs font-bold text-[#1d63d8] hover:text-[#002296] hover:underline sm:text-sm"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  <span>¿Olvidó su Contraseña?</span>
+                </button>
+              </div>
+              <div className="relative mt-1.5">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-700">
+                  <Lock className="h-5 w-5 text-[#071b3e]" />
+                </div>
+                <input
+                  id="login-password"
+                  data-testid="login-password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder="Ingrese su contraseña"
+                  aria-invalid={Boolean(errors.claveOperacional)}
+                  aria-describedby={
+                    errors.claveOperacional ? "login-password-error" : undefined
+                  }
+                  className="min-h-12 w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-11 text-sm font-medium text-slate-800 placeholder:text-slate-400 shadow-sm transition-all focus:border-[#1d63d8] focus:outline-none focus:ring-2 focus:ring-[#1d63d8]/20 aria-invalid:border-red-600"
+                  {...register("claveOperacional")}
+                />
+                <button
+                  type="button"
+                  data-testid="login-password-toggle"
+                  onClick={() => setShowPassword((curr) => !curr)}
+                  aria-label={
+                    showPassword
+                      ? "Ocultar clave operacional"
+                      : "Mostrar clave operacional"
+                  }
+                  aria-pressed={showPassword}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-500 hover:text-slate-800"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
+              {errors.claveOperacional ? (
+                <p
+                  id="login-password-error"
+                  role="alert"
+                  className="mt-1 text-xs font-semibold text-red-600"
+                >
+                  {errors.claveOperacional.message}
+                </p>
+              ) : null}
+            </div>
+
+            {/* Campo 3: Jurisdicción / Teatro de Operaciones */}
+            <div>
+              <label
+                htmlFor="login-jurisdiction"
+                className="flex items-center gap-1.5 text-xs font-bold text-[#071b3e] sm:text-sm"
+              >
+                <Scale className="h-4 w-4 text-[#071b3e]" />
+                <span>Jurisdicción / Teatro de Operaciones</span>
+              </label>
+              <div className="relative mt-1.5">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-700">
+                  <MapPin className="h-5 w-5 text-[#071b3e]" />
+                </div>
                 <select
                   id="login-jurisdiction"
                   data-testid="login-jurisdiction"
@@ -272,7 +314,7 @@ export function LoginView() {
                   aria-describedby={
                     errors.jurisdiccion ? "login-jurisdiction-error" : undefined
                   }
-                  className="mt-2 min-h-12 w-full rounded-xl border border-ladp-navy/20 bg-white px-3 text-base font-semibold text-ladp-navy-dark aria-invalid:border-red-600"
+                  className="min-h-12 w-full appearance-none rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-10 text-sm font-medium text-slate-800 shadow-sm transition-all focus:border-[#1d63d8] focus:outline-none focus:ring-2 focus:ring-[#1d63d8]/20 aria-invalid:border-red-600"
                   {...register("jurisdiccion")}
                 >
                   <option value="nacional">Nivel Nacional - Jefatura</option>
@@ -280,111 +322,143 @@ export function LoginView() {
                   <option value="sur_centro">Coordinación Regional - Sur / Centro</option>
                   <option value="campo">Brigada de Campo - Asistente</option>
                 </select>
-                {errors.jurisdiccion ? (
-                  <p
-                    id="login-jurisdiction-error"
-                    role="alert"
-                    className="mt-1.5 text-sm font-semibold text-red-700"
-                  >
-                    {errors.jurisdiccion.message}
-                  </p>
-                ) : null}
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-500">
+                  <ChevronDown className="h-5 w-5" />
+                </div>
               </div>
-
-              <div className="flex items-start gap-3">
-                <input
-                  id="login-keep-session"
-                  data-testid="login-keep-session"
-                  type="checkbox"
-                  className="mt-0.5 h-5 w-5 shrink-0 rounded border-ladp-navy/30 accent-ladp-orange"
-                  {...register("mantenerSesion")}
-                />
-                <label
-                  htmlFor="login-keep-session"
-                  className="text-sm font-semibold leading-snug text-ladp-navy-dark"
-                >
-                  Mantener sesión iniciada (Caché local seguro)
-                </label>
-              </div>
-
-              {serverError ? (
+              {errors.jurisdiccion ? (
                 <p
-                  data-testid="login-error"
+                  id="login-jurisdiction-error"
                   role="alert"
-                  className="rounded-xl border border-red-600/30 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800"
+                  className="mt-1 text-xs font-semibold text-red-600"
                 >
-                  {serverError}
+                  {errors.jurisdiccion.message}
                 </p>
               ) : null}
-
-              <button
-                type="submit"
-                data-testid="login-submit"
-                disabled={isSubmitting}
-                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-ladp-orange px-5 text-base font-black text-white shadow-lg shadow-orange-900/20 transition-colors hover:bg-ladp-orange-light disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden={true} />
-                ) : (
-                  <ArrowRight className="h-5 w-5" aria-hidden={true} />
-                )}
-                {isSubmitting ? "Ingresando…" : "Ingresar al Sistema"}
-              </button>
-            </form>
-
-            <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <button
-                type="button"
-                onClick={requestOpenSupportChat}
-                className="min-h-11 rounded-lg border border-ladp-navy/15 px-3 text-sm font-bold text-ladp-navy-dark hover:border-ladp-cobalt hover:text-ladp-cobalt"
-              >
-                Crear Cuenta
-              </button>
-              <button
-                type="button"
-                onClick={requestOpenSupportChat}
-                className="min-h-11 rounded-lg border border-ladp-navy/15 px-3 text-sm font-bold text-ladp-navy-dark hover:border-ladp-cobalt hover:text-ladp-cobalt"
-              >
-                Olvidé mi Contraseña
-              </button>
-              <button
-                type="button"
-                data-testid="login-support"
-                onClick={requestOpenSupportChat}
-                className="min-h-11 rounded-lg border border-ladp-orange/40 bg-orange-50 px-3 text-sm font-bold text-ladp-orange hover:bg-orange-100"
-              >
-                Soporte
-              </button>
             </div>
+
+            {/* Checkbox: Mantener sesión iniciada */}
+            <div className="flex items-center gap-2.5 pt-1">
+              <input
+                id="login-keep-session"
+                data-testid="login-keep-session"
+                type="checkbox"
+                className="h-4.5 w-4.5 rounded border-slate-300 text-[#1d63d8] accent-[#1d63d8] focus:ring-[#1d63d8]"
+                {...register("mantenerSesion")}
+              />
+              <label
+                htmlFor="login-keep-session"
+                className="cursor-pointer select-none text-xs font-semibold text-slate-700 sm:text-sm"
+              >
+                Mantener sesión iniciada ( Caché local seguro )
+              </label>
+            </div>
+
+            {/* Error del servidor / credenciales incorrectas */}
+            {serverError ? (
+              <div
+                data-testid="login-error"
+                role="alert"
+                className="rounded-xl border border-red-500/30 bg-red-50 p-3 text-xs font-semibold text-red-700 sm:text-sm"
+              >
+                {serverError}
+              </div>
+            ) : null}
+
+            {/* Botón Principal: Ingresar al Sistema */}
+            <button
+              type="submit"
+              data-testid="login-submit"
+              disabled={isSubmitting}
+              className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f06a00] to-[#e65c00] px-4 py-3.5 text-base font-extrabold text-white shadow-lg shadow-orange-500/25 transition-all hover:from-[#ff7a00] hover:to-[#f06a00] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <LogIn className="h-5 w-5" />
+              )}
+              <span>{isSubmitting ? "Ingresando…" : "Ingresar al Sistema"}</span>
+            </button>
+          </form>
+
+          {/* Separador de opciones adicionales */}
+          <div className="relative my-4 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200" />
+            </div>
+            <span className="relative bg-white px-3 text-xs font-semibold text-slate-400">
+              Opciones adicionales
+            </span>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-dashed border-ladp-navy/20 bg-white/70 p-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-ladp-slate">
-              Acceso de demostración · clave {DEMO_PASSWORD}
-            </p>
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {DEMO_ACCOUNTS.map((account) => (
-                <button
-                  key={account.identificadorOficial}
-                  type="button"
-                  data-testid={account.testId}
-                  onClick={() => fillDemo(account)}
-                  className="min-h-11 rounded-lg border border-ladp-navy/15 bg-ladp-surface px-3 py-2 text-left hover:border-ladp-cobalt"
-                >
-                  <span className="block font-mono text-sm font-bold text-ladp-navy-dark">
-                    {account.label}
-                  </span>
-                  <span className="block text-[11px] font-medium text-ladp-slate">
-                    {account.description}
-                  </span>
-                </button>
-              ))}
-            </div>
+          {/* Tres botones de acción complementaria */}
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={requestOpenSupportChat}
+              className="flex min-h-11 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-slate-50/70 px-2 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100"
+            >
+              <UserPlus className="h-3.5 w-3.5 shrink-0 text-slate-600" />
+              <span className="truncate">Crear Cuenta</span>
+            </button>
+            <button
+              type="button"
+              onClick={requestOpenSupportChat}
+              className="flex min-h-11 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-slate-50/70 px-2 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100"
+            >
+              <Lock className="h-3.5 w-3.5 shrink-0 text-slate-600" />
+              <span className="truncate">Olvidé mi Contraseña</span>
+            </button>
+            <button
+              type="button"
+              data-testid="login-support"
+              onClick={requestOpenSupportChat}
+              className="flex min-h-11 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-slate-50/70 px-2 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100"
+            >
+              <Headphones className="h-3.5 w-3.5 shrink-0 text-slate-600" />
+              <span className="truncate">Soporte</span>
+            </button>
           </div>
 
-          <p className="mt-4 text-center text-xs font-medium text-ladp-slate">
-            Uso oficial · Jefatura, coordinaciones regionales y brigadas de campo
-          </p>
+          {/* Pie de confianza y seguridad institucional */}
+          <div className="mt-5 flex items-center justify-center gap-1.5 text-center text-xs font-medium text-slate-500">
+            <ShieldCheck className="h-4 w-4 text-slate-500" />
+            <span>AYUDA LADP | Sistema Seguro y Confiable</span>
+          </div>
+        </div>
+
+        {/* =========================================================================
+            BARRA DE ACCESOS DIRECTOS DEMO
+        ========================================================================== */}
+        <div className="relative z-10 mt-4 w-full max-w-[490px] rounded-2xl border border-dashed border-slate-300 bg-white/80 p-3 shadow-sm backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Accesos de prueba · Clave {DEMO_PASSWORD}
+            </span>
+            <span className="text-[10px] font-semibold text-slate-400">Clic para rellenar</span>
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {DEMO_ACCOUNTS.map((account) => (
+              <button
+                key={account.identificadorOficial}
+                type="button"
+                data-testid={account.testId}
+                onClick={() => fillDemo(account)}
+                className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-center transition-all hover:border-[#1d63d8] hover:bg-blue-50/40"
+              >
+                <span className="font-mono text-xs font-extrabold text-[#071b3e]">
+                  {account.label}
+                </span>
+                <span className="max-w-full truncate text-[10px] font-medium text-slate-500">
+                  {account.jurisdiccion === "nacional"
+                    ? "Jefatura"
+                    : account.jurisdiccion === "campo"
+                      ? "Asistente"
+                      : "Coordinador"}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </section>
     </div>
