@@ -1,26 +1,54 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-ladp-navy-dark: #030b38;
+  --color-ladp-navy: #071b3e;
+  --color-ladp-cobalt: #002296;
+  --color-ladp-cobalt-light: #0b318f;
+  --color-ladp-orange: #f06a00;
+  --color-ladp-orange-light: #ff7a00;
+  --color-ladp-amber: #ffb800;
+  --color-ladp-bg: #f4f7fb;
+  --color-ladp-surface: #ffffff;
+  --color-ladp-slate: #4a5568;
+  --color-ladp-slate-light: #7a869a;
+
+  --font-sans:
+    "Inter", "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono:
+    "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  body {
+    background-color: var(--color-ladp-bg);
+    color: var(--color-ladp-navy-dark);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-ladp-orange);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-ladp-amber);
+    color: var(--color-ladp-navy-dark);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .ladp-surface-card {
+    background-color: var(--color-ladp-surface);
+    border: 1px solid color-mix(in srgb, var(--color-ladp-navy) 12%, transparent);
+    border-radius: 1rem;
+    box-shadow: 0 10px 30px -18px rgb(3 11 56 / 0.35);
+  }
 }
