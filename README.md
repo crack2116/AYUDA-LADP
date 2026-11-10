@@ -1,233 +1,237 @@
 # AYUDA LADP .com
 
-AYUDA LADP is a humanitarian alert system for floods, landslides and other El Niño emergencies in
-Peru. Field brigades register incidents, regional coordinators validate that a report really exists,
-and national leadership reads a live situation panel with six KPIs. The MVP is designed for
-low-connectivity field work: every write lands in the browser first, validation runs before anything
-is stored, and the UI never depends on a paid map, GPS or imaging provider.
+AYUDA LADP es un sistema de alertas y respuesta humanitaria diseñado para emergencias por inundaciones,
+deslizamientos y otros eventos asociados al Fenómeno El Niño en Perú. Las brigadas de campo registran
+incidencias, los coordinadores regionales validan la existencia real de cada reporte y la jefatura
+nacional monitorea un panel de situación en tiempo real con seis KPIs estratégicos. El MVP está
+optimizado para trabajo de campo en zonas de baja conectividad: cada registro se guarda primero en el
+navegador, las validaciones se ejecutan antes de persistir y la interfaz no depende de servicios de
+pago de mapas, GPS ni imágenes.
 
 > Sistemas de Alertas y Respuesta Humanitaria · DINAPROS · Perú
 
-## What the product does
+## Qué hace el producto
 
-- **Asistente (field brigade):** searchable centro poblado combobox, duplicate/existence alert with
-  recent `INC` codes, seven affectation types, integer households, eight needs, "occurred today"
-  switch, free browser GPS, reference note, and a confirmation card with an audit code
-  `INC-YYYY-NNNNN`.
-- **Coordinador (regional area):** own centros poblados, incident table for the region, one-click
-  `Validar Existencia`, and an area CSV export.
-- **Jefatura (national):** six KPI cards, three tabs (national incidents, coordinator performance,
-  assistant activity) and a national CSV export.
-- **Everyone:** floating support chat reachable from `/login` and every role screen, plus a
-  collapsible QA "break the module" bar for demoing validation failures.
+- **Asistente (brigada de campo):** buscador autocompletable de centros poblados, alerta de duplicados
+  y existencia con códigos `INC` recientes, siete tipos de afectación, conteo entero de hogares, ocho
+  necesidades críticas, selector de fecha "ocurrido hoy", captura de GPS gratuito mediante la API del
+  navegador, notas de referencia y tarjeta de confirmación con código de auditoría `INC-YYYY-NNNNN`.
+- **Coordinador (zona regional):** centros poblados asignados a su jurisdicción, tabla de incidencias de
+  la región, acción de un clic para `Validar Existencia` y exportación a CSV por área.
+- **Jefatura (ámbito nacional):** seis tarjetas de KPIs ejecutivos, tres pestañas de análisis
+  (incidencias nacionales, rendimiento de coordinadores, actividad de asistentes) y exportación a CSV
+  nacional consolidado.
+- **Para todos los usuarios:** widget flotante de chat de soporte técnico accesible desde `/login` y
+  todas las vistas de rol, más una barra desplegable de pruebas QA para demostrar el rechazo de datos
+  inválidos en vivo.
 
-## Role model
+## Modelo de roles y permisos
 
-| Role | Scope | Landing route | Main permissions |
+| Rol | Alcance | Ruta de inicio | Permisos principales |
 | --- | --- | --- | --- |
-| `jefatura` | National | `/jefatura` | Read all, validate, export, read KPIs, read coordinators/users |
-| `coordinador` | Own region and assigned centros | `/coordinador` | Read own area, validate, export, read area KPIs |
-| `asistente` | Only the reports it created | `/incidencias/nuevo` | Create and read own reports |
+| `jefatura` | Nacional | `/jefatura` | Lectura global, validar, exportar, consultar KPIs, auditar coordinadores y usuarios |
+| `coordinador` | Región propia y centros asignados | `/coordinador` | Lectura de su zona, validar, exportar, consultar métricas de área |
+| `asistente` | Únicamente reportes creados por su brigada | `/incidencias/nuevo` | Crear y consultar sus propios reportes |
 
-Authorization is deny-by-default (`src/domain/permissions/rbac.ts`). The login screen also requires
-the jurisdiction that matches the account: `nacional` for Jefatura, `piura_norte` or `sur_centro` for
-coordination, and `campo` for field brigades. A mismatched jurisdiction is rejected before a session
-is written.
+La autorización sigue el principio de denegación por defecto (`src/domain/permissions/rbac.ts`). La
+pantalla de inicio de sesión valida además que la jurisdicción coincida con la cuenta: `nacional` para
+Jefatura, `piura_norte` o `sur_centro` para Coordinación, y `campo` para brigadas de asistencia. Si la
+jurisdicción no coincide, el acceso es rechazado antes de crear la sesión.
 
-## Clean Architecture tree
+## Árbol de Clean Architecture (Arquitectura Limpia)
 
 ```text
 src/
-├─ domain/                 Pure TypeScript: entities, Zod schemas, RBAC, audit code,
-│                          duplicate window, KPI calculator, Lima date/GPS helpers.
-├─ application/            Ports + use cases. Returns typed Results, never throws.
-│  ├─ ports/               Auth, incidencia, centro, ticket, allocator, GPS, CSV, cache.
-│  └─ use-cases/           Login, create/check/validate incidencia, list, KPIs, CSV, tickets.
-├─ infrastructure/         Adapters and composition root.
-│  ├─ cache/               localStorage/sessionStorage guards and LocalStorageCache.
-│  ├─ csv/                 RFC 4180 exporter with BOM + CRLF.
-│  ├─ db/                  Supabase-ready PostgreSQL DDL.
-│  ├─ gps/                 BrowserGeolocation adapter (free, no API key).
-│  ├─ repositories/        Local-first repositories over the namespaced store.
-│  ├─ seed/                Deterministic demo dataset and credentials.
-│  └─ container.ts         Composition root + createTestContainer({ now }).
-├─ presentation/           React views, components, hooks, buses and formatting.
-├─ app/                    Next.js 15 App Router pages and root layout.
-└─ __tests__/              Vitest unit/RTL suites and the Playwright E2E flow.
+├─ domain/                 TypeScript puro: entidades, esquemas Zod, RBAC, código de auditoría,
+│                          ventana de duplicados, cálculo de KPIs, utilidades de fecha y GPS.
+├─ application/            Puertos y casos de uso. Retorna resultados tipados (Result), sin lanzar excepciones.
+│  ├─ ports/               Auth, incidencia, centro poblado, tickets, allocador, GPS, CSV, caché.
+│  └─ use-cases/           Login, crear/verificar/validar incidencia, listados, KPIs, CSV, tickets.
+├─ infrastructure/         Adaptadores y raíz de composición (Composition Root).
+│  ├─ cache/               Guardas de localStorage/sessionStorage y LocalStorageCache.
+│  ├─ csv/                 Exportador RFC 4180 con BOM + CRLF para compatibilidad con Excel.
+│  ├─ db/                  DDL SQL listo para PostgreSQL / Supabase.
+│  ├─ gps/                 Adaptador BrowserGeolocation (nativo, gratuito, sin API key).
+│  ├─ repositories/        Repositorios locales sobre almacenamiento con espacio de nombres.
+│  ├─ seed/                Conjunto de datos semilla determinista y credenciales de demostración.
+│  └─ container.ts         Raíz de composición + createTestContainer({ now }).
+├─ presentation/           Vistas React, componentes modulares, hooks, buses de eventos y formateadores.
+├─ app/                    Páginas del App Router de Next.js 15 y diseño raíz (layout).
+└─ __tests__/              Suites unitarias y RTL con Vitest, más flujo E2E con Playwright.
 ```
 
-The dependency rule points inward: `domain` imports nothing from React, Next or the browser;
-`application` depends only on ports; `infrastructure` implements those ports; `presentation` talks to
-the composition root. Swapping the local adapters for Supabase does not change domain or use-case
-code.
+La regla de dependencias apunta siempre hacia adentro: `domain` no importa nada de React, Next ni del
+navegador; `application` depende exclusivamente de los puertos; `infrastructure` implementa dichos
+puertos; y `presentation` interactúa con el sistema a través del contenedor de dependencias. Reemplazar
+los adaptadores locales por Supabase no altera en absoluto la lógica de negocio del dominio ni los casos
+de uso.
 
-## Design tokens
+## Tokens de diseño
 
-Tailwind CSS v4 `@theme` tokens live in `src/app/globals.css`:
+Los tokens `@theme` de Tailwind CSS v4 están centralizados en `src/app/globals.css`:
 
-| Token | Value | Use |
+| Token | Valor | Uso principal |
 | --- | --- | --- |
-| `ladp-navy-dark` | `#030b38` | Sidebar, dark chrome |
-| `ladp-navy` | `#071b3e` | Header and login panel |
-| `ladp-cobalt` | `#002296` | Primary actions, links |
-| `ladp-cobalt-light` | `#0b318f` | Hover on primary actions |
-| `ladp-orange` | `#f06a00` | Alerts, CTAs, focus ring |
-| `ladp-orange-light` | `#ff7a00` | CTA hover |
-| `ladp-amber` | `#ffb800` | Warnings, demo accents |
-| `ladp-bg` | `#f4f7fb` | Page background |
-| `ladp-surface` | `#ffffff` | Cards and tables |
+| `ladp-navy-dark` | `#030b38` | Barra lateral, fondos oscuros |
+| `ladp-navy` | `#071b3e` | Encabezado principal y panel de acceso |
+| `ladp-cobalt` | `#002296` | Acciones primarias y enlaces |
+| `ladp-cobalt-light` | `#0b318f` | Hover en botones primarios |
+| `ladp-orange` | `#f06a00` | Alertas, llamadas a la acción (CTA), anillo de foco |
+| `ladp-orange-light` | `#ff7a00` | Hover en llamadas a la acción |
+| `ladp-amber` | `#ffb800` | Advertencias y acentos de demostración |
+| `ladp-bg` | `#f4f7fb` | Fondo general de la aplicación |
+| `ladp-surface` | `#ffffff` | Superficie de tarjetas y tablas |
 
-Fonts are Inter (sans) and JetBrains Mono (audit codes), with system fallbacks. `.ladp-surface-card`
-is the shared card utility. Icons come from `lucide-react`; there are no image assets.
+Tipografías: Inter (sans) y JetBrains Mono (códigos de auditoría), con fuentes de respaldo del sistema.
+La clase `.ladp-surface-card` es la utilidad compartida para contenedores. Los íconos provienen de
+`lucide-react`, prescindiendo de dependencias de imágenes pesadas.
 
-## Local-first persistence and the demo seed
+## Persistencia Local-First y datos semilla
 
-The browser is the database in this MVP:
+El navegador actúa como base de datos en este MVP:
 
-- `src/infrastructure/repositories/local-store.ts` namespaces every key under `ayuda-ladp:v1`, writes
-  to `localStorage` and keeps an in-memory mirror so SSR and tests never crash on missing storage.
-  Session persistence can use `sessionStorage` when "Mantener sesión" is off.
-- `src/infrastructure/seed/demo-data.ts` builds a deterministic dataset anchored to the injected
-  clock: 12 centros poblados, 11 profiles (6 Jefatura, 2 coordination, 3 assistants) and 9 incidents
-  spread over the last 70 hours. `ensureDemoSeed` seeds once per `DEMO_SEED_VERSION`, so a reload
-  keeps new reports and the audit sequence.
-- The audit allocator reads/writes `audit-sequence` in the same store, so codes never repeat across
-  reloads. The seed starts at `INC-YYYY-00009`; the next real report is `INC-YYYY-00010`.
-- `resetDemoSeed(now)` rebuilds the demo dataset. Tests clear the store through `clearStore()` in
-  `src/__tests__/setup.ts`.
+- `src/infrastructure/repositories/local-store.ts` asigna a cada clave el prefijo `ayuda-ladp:v1`,
+  escribe en `localStorage` y mantiene un espejo en memoria para evitar fallos durante SSR o pruebas.
+  La sesión puede utilizar `sessionStorage` cuando la opción "Mantener sesión" está desactivada.
+- `src/infrastructure/seed/demo-data.ts` genera un conjunto de datos determinista anclado al reloj del
+  sistema: 12 centros poblados, 11 perfiles (6 de Jefatura, 2 de Coordinación y 3 de Asistencia) y 9
+  incidencias distribuidas en las últimas 70 horas. `ensureDemoSeed` inicializa los datos una sola vez
+  por versión (`DEMO_SEED_VERSION`), de modo que recargar la página conserva los nuevos reportes y la
+  secuencia de auditoría.
+- El asignador de códigos de auditoría lee y actualiza `audit-sequence` en el mismo almacenamiento,
+  garantizando que los códigos correlativos nunca se repitan tras recargar. Los datos semilla inician en
+  `INC-YYYY-00009`; el siguiente reporte creado toma automáticamente `INC-YYYY-00010`.
+- `resetDemoSeed(now)` reconstruye el conjunto de datos de demostración. Las pruebas limpian el estado
+  vía `clearStore()` en `src/__tests__/setup.ts`.
 
-Because everything is local, two browsers do not share data and clearing site data resets the demo.
-That is the deliberate trade-off while no cloud project exists.
+Al funcionar de manera local, dos navegadores distintos no comparten datos y borrar los datos del sitio
+reinicia la demo. Esta es una decisión arquitectónica deliberada para permitir pruebas completas sin
+dependencias de nube obligatorias.
 
-## Supabase path
+## Migración a Supabase (PostgreSQL 15)
 
-The SQL target ships at `src/infrastructure/db/supabaseSchema.sql` (PostgreSQL 15). It defines the
-`user_role` enum, `centros_poblados`, `profiles`, `incidencias` with CHECK constraints,
-`tickets_soporte`, the `incidencia_seq` sequence plus `generar_codigo_incidencia()` trigger, RLS
-policies for the three roles, B-Tree indexes and `pg_trgm` GIN indexes.
+El esquema SQL oficial está disponible en `src/infrastructure/db/supabaseSchema.sql`. Define el tipo enum
+`user_role`, las tablas `centros_poblados`, `profiles`, `incidencias` (con restricciones CHECK),
+`tickets_soporte`, la secuencia `incidencia_seq` con el disparador `generar_codigo_incidencia()`,
+políticas RLS para los tres roles, índices B-Tree e índices GIN con `pg_trgm`.
 
-1. Create a Supabase project.
-2. Open **SQL Editor** and run `src/infrastructure/db/supabaseSchema.sql` as one script.
-3. Copy the **transaction pooler** connection string (PgBouncer, transaction mode, port `6543`) for
-   serverless/edge runtimes. Use the direct connection only for migrations that need session-level
-   features. Transaction mode does not keep prepared statements between transactions, so disable
-   statement caching in the client (for example `prepare: false` with `postgres-js`).
-4. Replace the local adapters and rewire the composition root:
+1. Crear un proyecto en Supabase.
+2. Abrir el **SQL Editor** y ejecutar `src/infrastructure/db/supabaseSchema.sql` en un solo bloque.
+3. Copiar la cadena de conexión del **transaction pooler** (PgBouncer, modo transacción, puerto `6543`)
+   para entornos serverless o Edge. Usar la conexión directa únicamente para migraciones que requieran
+   funcionalidades a nivel de sesión. En modo transacción, desactivar el caché de declaraciones
+   preparadas en el cliente (`prepare: false`).
+4. Reemplazar los adaptadores locales en el contenedor de dependencias:
 
-| Local adapter | Cloud replacement |
+| Adaptador local | Reemplazo en la nube |
 | --- | --- |
-| `LocalAuthRepository` | Supabase Auth + a `profiles` adapter (session/JWT instead of the demo credential list) |
+| `LocalAuthRepository` | Supabase Auth + adaptador de `profiles` (sesión/JWT en lugar de credenciales locales) |
 | `LocalCentroPobladoRepository` | `supabase.from("centros_poblados")` |
-| `LocalIncidenciaRepository` | `supabase.from("incidencias")`, including `markVerified` |
+| `LocalIncidenciaRepository` | `supabase.from("incidencias")`, incluyendo `markVerified` |
 | `LocalSupportTicketRepository` | `supabase.from("tickets_soporte")` |
-| `LocalAuditCodeAllocator` | The database sequence/trigger result from the insert, not a client counter |
-| `LocalStorageCache` | Optional remote cache; the session comes from Supabase Auth |
+| `LocalAuditCodeAllocator` | Secuencia y trigger nativo de PostgreSQL tras la inserción |
+| `LocalStorageCache` | Caché remoto opcional; la sesión la gestiona Supabase Auth |
 
-Only `src/infrastructure/container.ts` and the adapter files change. The domain schemas and use cases
-stay untouched because they depend on ports.
+Únicamente cambian `src/infrastructure/container.ts` y los archivos adaptadores. Los esquemas del dominio
+y los casos de uso permanecen intactos gracias al desacoplamiento por puertos.
 
-**Not included:** a live Supabase project, credentials, or a deployed environment. The DDL is the
-contract; the local adapter is what runs here.
+## Credenciales de demostración
 
-## Demo credentials
+Contraseña compartida: `ladp2026`. La pantalla de login incluye botones de autorelleno para cada rol:
 
-Shared password: `ladp2026`. The login screen has one click-to-fill button per role.
-
-| Button | Identifier | Jurisdiction | Lands on |
+| Botón | Identificador | Jurisdicción | Vista de destino |
 | --- | --- | --- | --- |
 | `login-demo-jefatura` | `JEF-001` | `nacional` | `/jefatura` |
 | `login-demo-coordinador` | `COO-PN-01` | `piura_norte` | `/coordinador` |
 | `login-demo-asistente` | `ASI-PN-01` | `campo` | `/incidencias/nuevo` |
 
-Additional seeded accounts exist for the KPIs (`JEF-002`…`JEF-006`, `COO-SC-01`, `ASI-PN-02`,
-`ASI-SC-01`) but the login screen only exposes the three demo buttons.
+Existen perfiles adicionales para alimentar los KPIs (`JEF-002` a `JEF-006`, `COO-SC-01`, `ASI-PN-02`,
+`ASI-SC-01`), pero la interfaz muestra de forma directa los tres accesos de prueba principales.
 
-## pnpm scripts
+## Scripts disponibles en pnpm
 
-| Script | What it does |
+| Script | Descripción |
 | --- | --- |
-| `pnpm dev` | Next.js dev server with Turbopack on port 3000 |
-| `pnpm build` | Production build with Turbopack |
-| `pnpm start` | Serve the production build |
-| `pnpm lint` | ESLint over the repository |
-| `pnpm typecheck` | `tsc --noEmit` |
-| `pnpm test` | Run the Vitest suite once |
-| `pnpm test:watch` | Vitest in watch mode |
-| `pnpm test:coverage` | Vitest + V8 coverage with the 80% global gates |
-| `pnpm test:e2e` | Playwright flow with video recording |
+| `pnpm dev` | Inicia el servidor de desarrollo de Next.js con Turbopack en el puerto 3000 |
+| `pnpm build` | Compila la aplicación para producción con Turbopack |
+| `pnpm start` | Sirve la compilación de producción |
+| `pnpm lint` | Ejecuta el linter ESLint en todo el proyecto |
+| `pnpm typecheck` | Ejecuta la comprobación de tipos con `tsc --noEmit` |
+| `pnpm test` | Ejecuta la suite de pruebas con Vitest |
+| `pnpm test:watch` | Vitest en modo observador (watch) |
+| `pnpm test:coverage` | Vitest con reporte de cobertura V8 con umbral mínimo del 80% |
+| `pnpm test:e2e` | Ejecuta el flujo End-to-End con Playwright grabando video |
 
-Dependencies are managed with **pnpm 8+** (`pnpm-lock.yaml`). `pnpm import` produced the lockfile
-from the previous npm one; there is no `package-lock.json` in the repository.
+Las dependencias se gestionan con **pnpm 8+** (`pnpm-lock.yaml`).
 
-## Tests and coverage
+## Pruebas y cobertura de código
 
 ```bash
 pnpm test:coverage
 ```
 
-Vitest runs in jsdom against `src/domain`, `src/application`, `src/infrastructure` and
-`src/presentation`. Coverage thresholds are **80% for statements, branches, functions and lines**;
-the suite currently sits above that on every metric (161 tests). Unit tests cover every validator
-branch, the use-case failure paths, the CSV contract, the local store, and React Testing Library
-flows for login, the incident form, both dashboards, the support chat and the QA bar.
+Vitest se ejecuta bajo jsdom validando `src/domain`, `src/application`, `src/infrastructure` y
+`src/presentation`. El umbral de cobertura está fijado en un **mínimo del 80% en sentencias, ramas,
+funciones y líneas**, superado en todas las métricas (161 pruebas aprobadas). Las pruebas cubren cada
+regla de validación, rutas de fallo en casos de uso, formato CSV, persistencia local y pruebas con
+React Testing Library para login, formulario de incidencias, ambos paneles, chat y barra de QA.
 
 ```bash
 pnpm exec tsc --noEmit
 pnpm exec eslint src --max-warnings 0
 ```
 
-## Playwright E2E and the recorded video
+## Pruebas E2E con Playwright y grabación de video
 
 ```bash
 pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-`playwright.config.ts` runs one Chromium worker with `video: "on"`, `trace: "retain-on-failure"`,
-`locale: "es-PE"` and `timezoneId: "America/Lima"`, against `http://127.0.0.1:3000`. It starts
-`pnpm dev` automatically unless a server is already listening (and reuses it locally, never in
-CI).
+`playwright.config.ts` configura un worker de Chromium con `video: "on"`, `trace: "retain-on-failure"`,
+configuración regional `locale: "es-PE"` y zona horaria `America/Lima` sobre `http://127.0.0.1:3000`.
 
-The single test `flujo completo AYUDA LADP` walks the demo story: login and support ticket → assistant
-report with the three QA injections → real report with duplicate alert, GPS failure and audit code →
-coordinator validation and area CSV → Jefatura KPIs, tabs and national CSV.
+La prueba `flujo completo AYUDA LADP` recorre la experiencia completa:
+1. Inicio de sesión y envío de ticket de soporte técnico.
+2. Intento de reporte por asistente con las tres inyecciones de datos inválidos de la barra de QA.
+3. Envío de reporte verídico con alerta de duplicados, resolución de GPS y asignación de código `INC`.
+4. Validación de existencia por el coordinador regional y descarga del CSV de su zona.
+5. Supervisión de KPIs ejecutivos, navegación por pestañas y descarga del CSV nacional por Jefatura.
 
-The recording lands at:
+El video de la ejecución se guarda automáticamente en:
 
 ```text
 test-results/flujo-completo-flujo-completo-AYUDA-LADP-chromium/video.webm
 ```
 
-On failure the same folder also contains `test-failed-1.png` and `trace.zip`.
+## Barra de pruebas QA ("Probar Romper Módulo")
 
-## QA break-module bar
+Ubicada en la parte inferior de la pantalla (`Modo Test 80%+ — Probar Romper Módulo`), permite simular
+fallos de validación en el formulario de incidencias mediante eventos en `presentation/qa/qa-bus`:
 
-The bar sits at the bottom of every screen (`Modo Test 80%+ — Probar Romper Módulo`). Its three
-buttons only emit events on `presentation/qa/qa-bus`; the incident form owns the fields and runs the
-normal Zod resolver. In order:
+1. **Hogares negativos / decimales (-25.5):** error de número entero, rechazo sin persistencia.
+2. **Fecha futura (2027-12-31):** error de fecha futura, rechazo sin persistencia.
+3. **Formulario vacío / incompleto:** errores de campos obligatorios, rechazo sin persistencia.
 
-1. **Hogares negativos / decimales (-25.5)** → integer error, no confirmation.
-2. **Fecha futura (2027-12-31)** → future-date error, no confirmation.
-3. **Formulario vacío / incompleto** → required-field errors, no confirmation.
+Ningún dato erróneo llega al repositorio ni altera el estado almacenado.
 
-Nothing reaches a repository during an injection, and the bar has no effect outside
-`/incidencias/nuevo`.
+## Alcance delimitado del MVP
 
-## Deliberate scope limits
+- **Sin proyecto Supabase en vivo obligatorio:** el esquema SQL y los contratos están listos, pero la
+  ejecución por defecto es local-first.
+- **Sin proveedor de identidad externo:** las credenciales de demostración se validan mediante el puerto
+  de autenticación sin depender de servicios de terceros.
+- **Exportación CSV optimizada:** formato ligero con BOM y CRLF para Excel, sin dependencias pesadas de
+  generación de PDF o almacenamiento de imágenes.
+- **Sin sincronización en segundo plano entre dispositivos:** los datos residen en el perfil del
+  navegador correspondiente.
 
-- **No live Supabase project.** The schema and adapter seam are shipped, but runtime is local.
-- **No real identity provider.** Demo credentials are checked by the auth port; there is no password
-  hashing, OAuth, MFA or session refresh.
-- **No images or PDF export.** CSV only, with BOM and CRLF for Excel; no maps, photos or attachments.
-- **No server API or background sync.** Data is per browser profile and per device.
-- **No production RBAC enforcement.** Policies exist in SQL, but the browser demo trusts the local
-  session; enable RLS and real auth before any multi-user deployment.
-
-## Quick start
+## Puesta en marcha rápida
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Open `http://127.0.0.1:3000/login`, pick a demo role, and follow the seeded Piura data.
+Ingresar a `http://127.0.0.1:3000/login`, seleccionar un rol de demostración y comenzar las pruebas con
+los datos precargados de Piura y regiones afectadas.

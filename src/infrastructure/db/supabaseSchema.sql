@@ -1,10 +1,10 @@
--- AYUDA LADP - Supabase-ready schema (PostgreSQL 15)
--- Local runtime uses the localStorage adapter; this DDL is the cloud target.
+-- AYUDA LADP - Esquema compatible con Supabase (PostgreSQL 15)
+-- La ejecución local utiliza el adaptador de localStorage; este DDL es el objetivo para la nube.
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Roles mirror the three product views.
+-- Los roles reflejan las tres vistas del producto.
 CREATE TYPE user_role AS ENUM ('jefatura', 'coordinador', 'asistente');
 
 -- ---------------------------------------------------------------- centros poblados
@@ -23,17 +23,17 @@ CREATE INDEX idx_centros_poblados_nombre_trgm
 CREATE INDEX idx_centros_poblados_sector_trgm
   ON public.centros_poblados USING gin (sector gin_trgm_ops);
 
--- ---------------------------------------------------------------- profiles
+-- ---------------------------------------------------------------- profiles (perfiles)
 CREATE TABLE public.profiles (
   id uuid PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
   identificador_oficial text NOT NULL UNIQUE,
   nombre text NOT NULL,
   rol user_role NOT NULL,
-  -- null means national scope (jefatura)
+  -- null representa alcance nacional (jefatura)
   teatro_operaciones_region text
 );
 
--- ---------------------------------------------------------------- audit code
+-- ---------------------------------------------------------------- codigo de auditoria
 CREATE SEQUENCE public.incidencia_seq START WITH 1;
 
 CREATE OR REPLACE FUNCTION public.generar_codigo_incidencia()
@@ -96,11 +96,11 @@ EXECUTE FUNCTION public.generar_codigo_incidencia();
 CREATE INDEX idx_incidencias_centro ON public.incidencias (centro_poblado_id);
 CREATE INDEX idx_incidencias_created_at ON public.incidencias (created_at);
 CREATE INDEX idx_incidencias_verificado ON public.incidencias (verificado);
--- Trigram GIN keeps "necesidad principal" searches fast in dashboards.
+-- Índice GIN con trigramas para búsquedas rápidas de necesidad principal en los paneles
 CREATE INDEX idx_incidencias_necesidad_trgm
   ON public.incidencias USING gin (necesidad_principal gin_trgm_ops);
 
--- ---------------------------------------------------------------- support tickets
+-- ---------------------------------------------------------------- tickets de soporte
 CREATE TABLE public.tickets_soporte (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   usuario_id uuid REFERENCES public.profiles (id) ON DELETE SET NULL,
@@ -120,7 +120,7 @@ CREATE TABLE public.tickets_soporte (
 CREATE INDEX idx_tickets_soporte_usuario ON public.tickets_soporte (usuario_id);
 CREATE INDEX idx_tickets_soporte_created_at ON public.tickets_soporte (created_at);
 
--- ---------------------------------------------------------------- role helpers
+-- ---------------------------------------------------------------- funciones auxiliares de rol
 CREATE OR REPLACE FUNCTION public.current_rol()
 RETURNS user_role
 LANGUAGE sql
@@ -141,13 +141,13 @@ AS $$
   SELECT teatro_operaciones_region FROM public.profiles WHERE id = auth.uid();
 $$;
 
--- ---------------------------------------------------------------- RLS
+-- ---------------------------------------------------------------- RLS (Seguridad a Nivel de Fila)
 ALTER TABLE public.centros_poblados ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.incidencias ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tickets_soporte ENABLE ROW LEVEL SECURITY;
 
--- centros_poblados: everyone signed in can search; only jefatura can change the catalog.
+-- centros_poblados: cualquier usuario autenticado puede consultar; solo jefatura modifica el catálogo
 CREATE POLICY centros_select_authenticated ON public.centros_poblados
   FOR SELECT TO authenticated
   USING (true);
@@ -161,7 +161,7 @@ CREATE POLICY centros_update_jefatura ON public.centros_poblados
   USING (public.current_rol() = 'jefatura')
   WITH CHECK (public.current_rol() = 'jefatura');
 
--- profiles: own row, national jefatura, or a coordinator's own region.
+-- profiles: fila propia, jefatura nacional o la región asignada al coordinador
 CREATE POLICY profiles_select_own_or_jefatura ON public.profiles
   FOR SELECT TO authenticated
   USING (id = auth.uid() OR public.current_rol() = 'jefatura');
@@ -178,12 +178,12 @@ CREATE POLICY profiles_update_own_or_jefatura ON public.profiles
   USING (id = auth.uid() OR public.current_rol() = 'jefatura')
   WITH CHECK (id = auth.uid() OR public.current_rol() = 'jefatura');
 
--- incidencias: jefatura sees the whole country.
+-- incidencias: jefatura visualiza el país completo
 CREATE POLICY incidencias_select_jefatura ON public.incidencias
   FOR SELECT TO authenticated
   USING (public.current_rol() = 'jefatura');
 
--- incidencias: coordinators see their region through the centro poblado join.
+-- incidencias: los coordinadores visualizan su región mediante el join con centros poblados
 CREATE POLICY incidencias_select_coordinador ON public.incidencias
   FOR SELECT TO authenticated
   USING (
@@ -196,7 +196,7 @@ CREATE POLICY incidencias_select_coordinador ON public.incidencias
     )
   );
 
--- incidencias: assistants see only their own reports.
+-- incidencias: los asistentes visualizan exclusivamente sus propios reportes
 CREATE POLICY incidencias_select_asistente ON public.incidencias
   FOR SELECT TO authenticated
   USING (public.current_rol() = 'asistente' AND creado_por = auth.uid());
@@ -250,7 +250,7 @@ CREATE POLICY incidencias_update_coordinador ON public.incidencias
     )
   );
 
--- tickets_soporte: any signed-in user opens a ticket; only the owner or jefatura reads it.
+-- tickets_soporte: cualquier usuario autenticado puede abrir un ticket; solo el autor o jefatura lo leen
 CREATE POLICY tickets_insert_authenticated ON public.tickets_soporte
   FOR INSERT TO authenticated
   WITH CHECK (auth.uid() IS NOT NULL AND (usuario_id IS NULL OR usuario_id = auth.uid()));
@@ -263,7 +263,7 @@ CREATE POLICY tickets_select_own ON public.tickets_soporte
   FOR SELECT TO authenticated
   USING (usuario_id = auth.uid());
 
--- ---------------------------------------------------------------- grants
+-- ---------------------------------------------------------------- permisos
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.centros_poblados TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
