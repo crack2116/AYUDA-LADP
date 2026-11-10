@@ -245,7 +245,12 @@ export function CoordinadorAreaView() {
                     <th scope="col" className="px-3 py-3 font-bold">Necesidad</th>
                     <th scope="col" className="px-3 py-3 font-bold">Fecha</th>
                     <th scope="col" className="px-3 py-3 font-bold">Estado</th>
-                    <th scope="col" className="px-3 py-3 font-bold">Acción</th>
+                    <th
+                      scope="col"
+                      className="sticky right-0 z-10 bg-ladp-bg px-3 py-3 font-bold shadow-[-8px_0_10px_-10px_rgba(7,27,62,0.45)]"
+                    >
+                      Acción
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ladp-navy/10">
@@ -280,7 +285,7 @@ export function CoordinadorAreaView() {
                           {incidencia.verificado ? "Verificado" : "Pendiente"}
                         </span>
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="sticky right-0 z-10 bg-ladp-surface px-3 py-3 shadow-[-8px_0_10px_-10px_rgba(7,27,62,0.45)]">
                         {incidencia.verificado ? (
                           <span className="flex items-center gap-1 text-xs font-bold text-green-700">
                             <CheckCircle2 className="h-4 w-4" aria-hidden={true} />
