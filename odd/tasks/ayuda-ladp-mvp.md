@@ -138,6 +138,35 @@ README (setup, architecture, Supabase switching, test/video commands). Run `npm 
 
 - 2026-11-10 — T1 complete (commit `9c6b8bc`).
 - 2026-11-10 — Plan written; delegation route declared per task below.
+- 2026-11-10 — T2–T5 complete (commit `5daf48b`). 142 tests, 96.2% lines on the pure core.
+- 2026-11-10 — T6–T10 complete (commit `d484753`). Build clean, `/login` 200, role guards verified.
+- 2026-11-10 — T11–T13 complete (commit `59e84fe`). 161 tests, 87.7% lines with presentation
+  included, Playwright flow green with `video: "on"` (1.8 MB `.webm`).
+- 2026-11-10 — Visual pass over real screenshots fixed the coordinator action column
+  (commit `a8db1ae`).
+- 2026-11-10 — Native RDD review attempted over the whole branch (`9c6b8bc..HEAD`): the provider
+  refused at preflight with `lens_context_budget_exceeded` (89 files, 9476 changed lines). No review
+  authority was created and nothing was mutated, so no recovery is pending. The provider's own
+  remedy is a smaller candidate, which is not reachable here because `--base-ref` only moves the
+  base while the head stays at `HEAD`; the remaining split still carries 4291 added lines.
+  Delivery stays under ordinary repository policy with the verification above as the evidence.
+
+## Acceptance evidence
+
+| Ask | Evidence |
+| --- | --- |
+| Vitest >= 80% coverage | 87.73% lines, 82.47% branches, 91.93% functions, 87.70% statements |
+| Playwright records video | `test-results/flujo-completo-flujo-completo-AYUDA-LADP-chromium/video.webm` |
+| Audit code `INC-YYYY-NNNNN` | Allocator test with 50 parallel calls, no collision; seed continues at `INC-2026-00010` |
+| No future date / no negative households | `domain.spec.ts` + RTL form spec + QA bar injections |
+| Free GPS, no API key | `BrowserGpsService` over `navigator.geolocation`, typed failure reasons |
+| CSV without images | RFC 4180 exporter, BOM + CRLF, quoted fields |
+| Supabase-ready DB | `supabaseSchema.sql`: enum, sequence, trigger, CHECKs, RLS, B-Tree + GIN |
+
+## Final state
+
+Branch `feat/ayuda-ladp-mvp`, five commits, working tree clean. Next step is the human decision about
+delivery (push/PR) and about the RDD review scope.
 
 ## Route log
 
