@@ -15,20 +15,22 @@ import type { CentroPoblado } from "@/domain/entities/centro-poblado";
 import type { JefaturaKpis } from "@/domain/entities/kpis";
 import { USER_ROLE_LABELS } from "@/domain/entities/user";
 import { isIncidenciaVisible, scopeForUser } from "@/domain/permissions/rbac";
+import { calculateJefaturaKpis } from "@/domain/services/kpi-calculator";
 import { getContainer } from "@/infrastructure/container";
 import { DEMO_USERS } from "@/infrastructure/seed/demo-data";
 
-import { useAppSession } from "@/presentation/components/layout/RoleShell";
+import { ShellHeaderSlot, useAppSession } from "@/presentation/components/layout/RoleShell";
 import { IncidenciasCampoTab } from "@/presentation/components/jefatura/IncidenciasCampoTab";
 import { JefaturaAnalyticsCharts } from "@/presentation/components/jefatura/JefaturaAnalyticsCharts";
 import { JefaturaFilterBar } from "@/presentation/components/jefatura/JefaturaFilterBar";
 import { JefaturaHeroBanner } from "@/presentation/components/jefatura/JefaturaHeroBanner";
 import { JefaturaIncidentTable } from "@/presentation/components/jefatura/JefaturaIncidentTable";
 import { JefaturaKpiCards } from "@/presentation/components/jefatura/JefaturaKpiCards";
+import { JefaturaQuickFilters } from "@/presentation/components/jefatura/JefaturaQuickFilters";
 import { RegistroTacticoTab } from "@/presentation/components/jefatura/RegistroTacticoTab";
 import { SupervisionMandosTab } from "@/presentation/components/jefatura/SupervisionMandosTab";
 import { downloadTextFile } from "@/presentation/lib/download";
-import { formatCount } from "@/presentation/lib/format";
+import { formatCount, formatPeriodoLabel } from "@/presentation/lib/format";
 
 type DashboardTab =
   | "incidencias"
@@ -51,6 +53,17 @@ const TABS: ReadonlyArray<{
   { id: "asistentes", label: "Actividad Asistentes", icon: Activity },
 ];
 
+/**
+ * Matches a centro poblado against a free-text scope such as "Piura".
+ * Demo data stores compound labels ("Piura / Norte"), so the comparison
+ * runs over region + name + sector.
+ */
+function matchesRegion(centro: CentroPoblado, region: string): boolean {
+  const needle = region.toLowerCase();
+  const haystack = `${centro.region} ${centro.nombre} ${centro.sector}`.toLowerCase();
+  return haystack.includes(needle);
+}
+
 export function JefaturaDashboardView() {
   const { user } = useAppSession();
   const [kpis, setKpis] = useState<JefaturaKpis | null>(null);
@@ -66,6 +79,7 @@ export function JefaturaDashboardView() {
   const [codeSearch, setCodeSearch] = useState("");
   const [sectorSearch, setSectorSearch] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("all");
+  const [selectedFecha, setSelectedFecha] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedTipo, setSelectedTipo] = useState("all");
 
@@ -140,10 +154,10 @@ export function JefaturaDashboardView() {
       ) {
         return false;
       }
-      if (
-        selectedRegion !== "all" &&
-        !centroPoblado.region.toLowerCase().includes(selectedRegion.toLowerCase())
-      ) {
+      if (selectedRegion !== "all" && !matchesRegion(centroPoblado, selectedRegion)) {
+        return false;
+      }
+      if (selectedFecha && incidencia.fechaSuceso !== selectedFecha) {
         return false;
       }
       if (selectedStatus === "verified" && !incidencia.verificado) {
@@ -160,12 +174,46 @@ export function JefaturaDashboardView() {
       }
       return true;
     });
-  }, [rows, codeSearch, sectorSearch, selectedRegion, selectedStatus, selectedTipo]);
+  }, [
+    rows,
+    codeSearch,
+    sectorSearch,
+    selectedRegion,
+    selectedFecha,
+    selectedStatus,
+    selectedTipo,
+  ]);
+
+  const filtersActive =
+    codeSearch !== "" ||
+    sectorSearch !== "" ||
+    selectedRegion !== "all" ||
+    selectedFecha !== null ||
+    selectedStatus !== "all" ||
+    selectedTipo !== "all";
+
+  // Indicators follow the active filters: showing national totals next to an
+  // empty filtered table would read as a broken panel.
+  const visibleKpis = useMemo(
+    () =>
+      filtersActive && kpis
+        ? calculateJefaturaKpis(
+            filteredRows.map((row) => row.incidencia),
+            new Date(),
+          )
+        : kpis,
+    [filtersActive, filteredRows, kpis],
+  );
+
+  const fechasConDatos = useMemo(    () => rows.map(({ incidencia }) => incidencia.fechaSuceso),
+    [rows],
+  );
 
   const handleResetFilters = () => {
     setCodeSearch("");
     setSectorSearch("");
     setSelectedRegion("all");
+    setSelectedFecha(null);
     setSelectedStatus("all");
     setSelectedTipo("all");
   };
@@ -186,29 +234,43 @@ export function JefaturaDashboardView() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
+      {/* Operational quick filters: incident day + territorial scope, published in the shell top bar */}
+      <ShellHeaderSlot>
+        <JefaturaQuickFilters
+          fecha={selectedFecha}
+          onFechaChange={setSelectedFecha}
+          region={selectedRegion}
+          onRegionChange={setSelectedRegion}
+          fechasConDatos={fechasConDatos}
+        />
+      </ShellHeaderSlot>
+
       {/* Institutional Hero Command Banner */}
       <JefaturaHeroBanner
         onExportCsv={handleExport}
         exporting={exporting}
         exportError={exportError}
+        periodo={
+          rows.length > 0 ? formatPeriodoLabel(rows.map((row) => row.incidencia.fechaSuceso)) : null
+        }
       />
 
       {loadError ? (
         <p
           role="alert"
-          className="rounded-2xl border border-red-600/30 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800"
+          className="rounded-xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700"
         >
           {loadError}
         </p>
       ) : null}
 
       {/* Navigation Tabs Bar */}
-      <section className="overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_2px_12px_rgba(12,45,110,0.05)] border border-slate-200/80">
+      <section className="rounded-xl bg-white p-1.5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
         <div
           role="tablist"
           aria-label="Vistas del panel nacional"
-          className="flex items-center justify-between gap-1 overflow-x-auto"
+          className="flex items-center gap-1 overflow-x-auto pb-0.5 lg:overflow-visible"
         >
           {TABS.map((tab) => {
             const active = activeTab === tab.id;
@@ -223,10 +285,10 @@ export function JefaturaDashboardView() {
                 aria-selected={active}
                 aria-controls={`panel-${tab.id}`}
                 onClick={() => setActiveTab(tab.id)}
-                className={`inline-flex h-9 flex-1 shrink-0 items-center justify-center gap-1.5 rounded-xl px-2.5 text-[11px] font-extrabold uppercase tracking-[0.02em] whitespace-nowrap transition-all ${
+                className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-[11px] font-bold uppercase tracking-[0.02em] whitespace-nowrap transition-colors lg:flex-1 ${
                   active
-                    ? "bg-[#0e4ec3] text-white shadow-[0_4px_12px_rgba(14,78,195,0.3)]"
-                    : "text-slate-600 hover:bg-slate-100/90 hover:text-[#0e4ec3]"
+                    ? "bg-brand-deep text-white"
+                    : "text-slate-500 hover:bg-brand-mist hover:text-brand-blue"
                 }`}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -242,29 +304,37 @@ export function JefaturaDashboardView() {
         role="tabpanel"
         id={`panel-${activeTab}`}
         aria-labelledby={`tab-${activeTab}`}
-        className="space-y-6"
+        className="space-y-3"
       >
         {activeTab === "incidencias" ? (
           <>
-            {/* KPI Cards Grid */}
-            {loading || !kpis ? (
+            {/* Indicators (follow the active filters) */}
+            {loading || !visibleKpis ? (
               <div
-                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+                className="rounded-xl bg-white p-4 sm:p-5"
                 aria-busy="true"
               >
-                {Array.from({ length: 6 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="h-32 animate-pulse rounded-2xl bg-surface-container-low"
-                  />
-                ))}
+                <div className="grid grid-cols-2 gap-5 xl:grid-cols-12">
+                  <div className="col-span-2 space-y-2 xl:col-span-4">
+                    <div className="h-2.5 w-28 animate-pulse rounded bg-slate-100" />
+                    <div className="h-11 w-24 animate-pulse rounded bg-slate-100" />
+                    <div className="h-2.5 w-32 animate-pulse rounded bg-slate-100" />
+                  </div>
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index} className="space-y-2 xl:col-span-2">
+                      <div className="h-2.5 w-20 animate-pulse rounded bg-slate-100" />
+                      <div className="h-6 w-12 animate-pulse rounded bg-slate-100" />
+                      <div className="h-2 w-24 animate-pulse rounded bg-slate-100" />
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
-              <JefaturaKpiCards kpis={kpis} />
+              <JefaturaKpiCards kpis={visibleKpis} />
             )}
 
             {/* Analytics & Charts (Donut & Regional Bars) */}
-            <JefaturaAnalyticsCharts rows={rows} />
+            <JefaturaAnalyticsCharts rows={filteredRows} />
 
             {/* Tactical Search & Filter Bar */}
             <JefaturaFilterBar
@@ -272,8 +342,6 @@ export function JefaturaDashboardView() {
               onCodeSearchChange={setCodeSearch}
               sectorSearch={sectorSearch}
               onSectorSearchChange={setSectorSearch}
-              selectedRegion={selectedRegion}
-              onRegionChange={setSelectedRegion}
               selectedStatus={selectedStatus}
               onStatusChange={setSelectedStatus}
               selectedTipo={selectedTipo}
@@ -301,19 +369,19 @@ export function JefaturaDashboardView() {
         ) : null}
 
         {activeTab === "coordinadores" ? (
-          <div className="overflow-hidden rounded-2xl bg-surface-container-lowest shadow-sm border border-surface-container-high/40">
-            <div className="border-b border-surface-container-high/20 p-4 sm:px-6">
-              <h3 className="text-base font-black text-on-surface">
+          <div className="overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
+            <div className="p-4 sm:px-5">
+              <h3 className="text-base font-bold text-brand-ink">
                 Desempeño y Cobertura de Coordinadores Zonales
               </h3>
-              <p className="text-xs text-on-surface-variant font-medium">
+              <p className="text-xs text-slate-500 font-medium">
                 Supervisión del avance territorial y verificación de reportes por zona asignada.
               </p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[680px] border-collapse text-left text-xs">
                 <caption className="sr-only">Desempeño de coordinadores</caption>
-                <thead className="bg-primary text-on-primary font-bold uppercase tracking-wider text-[11px]">
+                <thead className="bg-brand-mist text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   <tr>
                     <th scope="col" className="px-4 py-3">Coordinador</th>
                     <th scope="col" className="px-4 py-3">Región Asignada</th>
@@ -322,22 +390,22 @@ export function JefaturaDashboardView() {
                     <th scope="col" className="px-4 py-3">Verificadas</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-surface-container-high/40 text-on-surface font-medium">
+                <tbody className="divide-y divide-slate-100 font-medium text-brand-ink">
                   {coordinatorRows.map(
                     ({ profile, centros: centroCount, incidencias, verificadas }) => (
-                      <tr key={profile.id} className="transition-colors hover:bg-surface-container-low/50">
-                        <td className="px-4 py-3 font-bold text-on-surface">{profile.nombre}</td>
-                        <td className="px-4 py-3 text-on-surface-variant font-bold">
+                      <tr key={profile.id} className="transition-colors hover:bg-brand-mist">
+                        <td className="px-4 py-3 font-bold text-brand-ink">{profile.nombre}</td>
+                        <td className="px-4 py-3 text-slate-500 font-bold">
                           {profile.teatroOperacionesRegion ?? "Nacional"}
                         </td>
-                        <td className="px-4 py-3 font-mono font-bold text-primary">
+                        <td className="px-4 py-3 font-mono font-bold text-brand-blue">
                           {centroCount} centros
                         </td>
-                        <td className="px-4 py-3 font-mono font-bold text-secondary">
+                        <td className="px-4 py-3 font-mono font-bold text-brand-blue">
                           {formatCount(incidencias)}
                         </td>
                         <td className="px-4 py-3">
-                          <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-[11px] font-black uppercase text-green-800">
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide text-emerald-700">
                             {formatCount(verificadas)} validadas
                           </span>
                         </td>
@@ -351,33 +419,33 @@ export function JefaturaDashboardView() {
         ) : null}
 
         {activeTab === "asistentes" ? (
-          <div className="overflow-hidden rounded-2xl bg-surface-container-lowest shadow-sm border border-surface-container-high/40">
-            <div className="border-b border-surface-container-high/20 p-4 sm:px-6">
-              <h3 className="text-base font-black text-on-surface">
+          <div className="overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
+            <div className="p-4 sm:px-5">
+              <h3 className="text-base font-bold text-brand-ink">
                 Actividad y Reportes de Asistentes de Brigada
               </h3>
-              <p className="text-xs text-on-surface-variant font-medium">
+              <p className="text-xs text-slate-500 font-medium">
                 Registro del personal en campo y volumen de levantamiento de datos por agente.
               </p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] border-collapse text-left text-xs">
                 <caption className="sr-only">Actividad de asistentes</caption>
-                <thead className="bg-primary text-on-primary font-bold uppercase tracking-wider text-[11px]">
+                <thead className="bg-brand-mist text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   <tr>
                     <th scope="col" className="px-4 py-3">Asistente</th>
                     <th scope="col" className="px-4 py-3">Región de Despliegue</th>
                     <th scope="col" className="px-4 py-3">Reportes Creados</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-surface-container-high/40 text-on-surface font-medium">
+                <tbody className="divide-y divide-slate-100 font-medium text-brand-ink">
                   {assistantRows.map(({ profile, reportes }) => (
-                    <tr key={profile.id} className="transition-colors hover:bg-surface-container-low/50">
-                      <td className="px-4 py-3 font-bold text-on-surface">{profile.nombre}</td>
-                      <td className="px-4 py-3 text-on-surface-variant font-bold">
+                    <tr key={profile.id} className="transition-colors hover:bg-brand-mist">
+                      <td className="px-4 py-3 font-bold text-brand-ink">{profile.nombre}</td>
+                      <td className="px-4 py-3 text-slate-500 font-bold">
                         {profile.teatroOperacionesRegion ?? "Nacional"}
                       </td>
-                      <td className="px-4 py-3 font-mono font-bold text-secondary">
+                      <td className="px-4 py-3 font-mono font-bold text-brand-blue">
                         {formatCount(reportes)} registros
                       </td>
                     </tr>
@@ -389,12 +457,12 @@ export function JefaturaDashboardView() {
         ) : null}
       </div>
 
-      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-surface-container-high/30 pt-4 text-xs font-medium text-on-surface-variant">
+      <footer className="flex flex-wrap items-center justify-between gap-2 px-1 pt-1 text-[11px] font-medium text-slate-400">
         <span>
-          Sesión Activa: <strong className="text-on-surface font-bold">{USER_ROLE_LABELS[user.rol]}</strong> ({user.nombre})
+          Sesión activa: <strong className="font-bold text-slate-600">{USER_ROLE_LABELS[user.rol]}</strong> ({user.nombre})
         </span>
-        <span className="font-mono text-[11px]">
-          AYUDA LADP v1.0 • Cache Local Seguro Activo
+        <span className="font-mono text-[10.5px]">
+          AYUDA LADP v1.0 · Caché local seguro activo
         </span>
       </footer>
     </div>

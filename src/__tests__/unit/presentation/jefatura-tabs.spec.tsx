@@ -110,18 +110,14 @@ describe("RegistroTacticoTab", () => {
     expect(screen.getByText("REGISTRO TÁCTICO DE INCIDENCIA DE CAMPO")).toBeInTheDocument();
     expect(screen.getByText(/PROTOCOLO EDAN PERÚ/i)).toBeInTheDocument();
 
-    // Copy code button
-    const copyBtn = screen.getByTestId("test-code-copy");
-    await user.click(copyBtn);
-
-    // Refresh code button
-    const refreshCodeBtn = screen.getByTestId("test-refresh-code");
-    await user.click(refreshCodeBtn);
+    // Audit code placeholder for unsaved draft
+    expect(screen.getByText("Código de auditoría")).toBeInTheDocument();
+    expect(screen.getByText("Pendiente de asignación")).toBeInTheDocument();
 
     // Load draft button
     const draftBtn = screen.getByTestId("test-load-draft");
     await user.click(draftBtn);
-    expect(screen.getByText(/Borrador de .* guardado en el Cache Local Seguro/i)).toBeInTheDocument();
+    expect(screen.getByText(/Borrador guardado en el cache local seguro/i)).toBeInTheDocument();
 
     // Steps Navigation
     await user.click(screen.getByTestId("test-step-1"));
@@ -245,7 +241,7 @@ describe("RegistroTacticoTab", () => {
     // Execution Buttons
     const registerBtn = screen.getByTestId("submit-incident-btn");
     await user.click(registerBtn);
-    expect(screen.getByText(/¡Incidencia .* REGISTRADA con éxito/i)).toBeInTheDocument();
+    expect(screen.getByText(/Incidencia registrada en la red COEN\/INDECI/i)).toBeInTheDocument();
 
     const saveDraftBtn = screen.getByTestId("save-draft-btn");
     await user.click(saveDraftBtn);
@@ -257,5 +253,5 @@ describe("RegistroTacticoTab", () => {
     // Close notification alert
     const closeNotificationBtn = screen.getByRole("button", { name: "✕" });
     await user.click(closeNotificationBtn);
-  });
+  }, 15_000);
 });

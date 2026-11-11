@@ -34,6 +34,72 @@ export function formatDateKey(dateKey: string | null): string {
   return `${day}/${month}/${year}`;
 }
 
+const MONTHS_SHORT = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "set",
+  "oct",
+  "nov",
+  "dic",
+] as const;
+
+const MONTHS_LONG = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Setiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+] as const;
+
+/** Compact label for a YYYY-MM-DD key, e.g. "10 nov 2026". */
+export function formatShortDateKey(dateKey: string): string {
+  const [year, month, day] = dateKey.split("-");
+  const monthIndex = Number(month) - 1;
+  if (!year || !day || Number.isNaN(monthIndex) || !MONTHS_SHORT[monthIndex]) {
+    return dateKey;
+  }
+  return `${Number(day)} ${MONTHS_SHORT[monthIndex]} ${year}`;
+}
+
+/** Long month label for a YYYY-MM key, e.g. "Noviembre 2026". */
+export function formatMonthKey(monthKey: string): string {
+  const [year, month] = monthKey.split("-");
+  const monthIndex = Number(month) - 1;
+  if (!year || Number.isNaN(monthIndex) || !MONTHS_LONG[monthIndex]) {
+    return monthKey;
+  }
+  return `${MONTHS_LONG[monthIndex]} ${year}`;
+}
+
+/**
+ * Human label for the period covered by a set of YYYY-MM-DD keys.
+ * One month renders as "Noviembre 2026"; several months render as a range.
+ */
+export function formatPeriodoLabel(dateKeys: readonly string[]): string {
+  const months = [...new Set(dateKeys.map((key) => key.slice(0, 7)))].sort();
+  const first = months[0];
+  const last = months[months.length - 1];
+  if (!first || !last) {
+    return "Sin datos";
+  }
+  return first === last
+    ? formatMonthKey(first)
+    : `${formatMonthKey(first)} – ${formatMonthKey(last)}`;
+}
+
 /** Renders an ISO timestamp in America/Lima. */
 export function formatDateTime(isoTimestamp: string): string {
   const date = new Date(isoTimestamp);

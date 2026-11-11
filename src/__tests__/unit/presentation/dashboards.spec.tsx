@@ -175,6 +175,86 @@ describe("JefaturaDashboardView", () => {
     expect(screen.queryByText("Manuel Vásquez")).not.toBeInTheDocument();
     await user.clear(officerSearch);
   });
+
+  it("builds the regional breakdown from the loaded incidents instead of fixed demo series", async () => {
+    const user = userEvent.setup();
+    await renderForRole("jefatura", <JefaturaDashboardView />);
+
+    await screen.findByText("Panel de situación nacional");
+    await screen.findByTestId("kpi-hogares");
+
+    // Region groups come from the incidents themselves
+    expect((await screen.findAllByText("Piura / Norte")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Sur / Centro").length).toBeGreaterThan(0);
+
+    // Invented series from the old mock never render
+    expect(screen.queryAllByText("Tumbes (Frontera Norte)")).toHaveLength(0);
+    expect(screen.queryAllByText("Cuenca Río Piura")).toHaveLength(0);
+    expect(screen.queryAllByText(/93 incidencias/)).toHaveLength(0);
+
+    await user.click(screen.getByText("Por Cuenca"));
+    expect((await screen.findAllByText("Bajo Piura")).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("Cuenca Río Piura")).toHaveLength(0);
+
+    await user.click(screen.getByText("Ámbito Nacional"));
+  });
+
+  it("filters by incident day with the calendar and by any Peruvian region", async () => {
+    const user = userEvent.setup();
+    await renderForRole("jefatura", <JefaturaDashboardView />);
+
+    await screen.findByText("Panel de situación nacional");
+    expect(await screen.findAllByTestId("incidencia-row")).toHaveLength(9);
+
+    // Calendar: pick a day that carries incidents
+    await user.click(await screen.findByTestId("filtro-fecha"));
+    const calendar = await screen.findByRole("dialog", { name: "Calendario de incidencias" });
+    const dottedDay = within(calendar)
+      .getAllByRole("button")
+      .find((button) => button.querySelector("span.rounded-full") !== null);
+    if (!dottedDay) throw new Error("No day with incidents found in the calendar");
+
+    await user.click(dottedDay);
+    const rowsForDay = screen.getAllByTestId("incidencia-row").length;
+    expect(rowsForDay).toBeGreaterThan(0);
+    expect(rowsForDay).toBeLessThan(9);
+    expect(screen.getByTestId("filtro-fecha")).toHaveTextContent(/nov 2026/i);
+
+    // Clearing the day restores every row
+    await user.click(screen.getByTestId("filtro-fecha"));
+    const reopenCalendar = await screen.findByRole("dialog", { name: "Calendario de incidencias" });
+    await user.click(within(reopenCalendar).getByRole("button", { name: "Todas las fechas" }));
+    expect(screen.getAllByTestId("incidencia-row")).toHaveLength(9);
+
+    // Regional scope: every region of Peru is offered
+    await user.click(screen.getByTestId("filtro-region"));
+    const listbox = await screen.findByRole("listbox", { name: "Regiones del Perú" });
+    const options = within(listbox).getAllByRole("option");
+    expect(options).toHaveLength(26);
+    for (const region of ["Piura", "Lima", "Cusco", "Ucayali", "Callao"] as const) {
+      expect(within(listbox).getByRole("option", { name: region })).toBeInTheDocument();
+    }
+
+    await user.click(within(listbox).getByRole("option", { name: "Piura" }));
+    expect(screen.getAllByTestId("incidencia-row")).toHaveLength(7);
+    expect(screen.getByTestId("filtro-region")).toHaveTextContent("Piura");
+
+    // A region without incidents shows the empty state
+    await user.click(screen.getByTestId("filtro-region"));
+    const reopenListbox = await screen.findByRole("listbox", { name: "Regiones del Perú" });
+    await user.click(within(reopenListbox).getByRole("option", { name: "Lima" }));
+    expect(screen.queryAllByTestId("incidencia-row")).toHaveLength(0);
+    expect(
+      screen.getByText(
+        "No se encontraron incidencias que coincidan con los criterios de búsqueda táctica.",
+      ),
+    ).toBeInTheDocument();
+
+    // Reset restores the national scope
+    await user.click(screen.getByRole("button", { name: "Restablecer" }));
+    expect(screen.getAllByTestId("incidencia-row")).toHaveLength(9);
+    expect(screen.getByTestId("filtro-region")).toHaveTextContent("Nivel Nacional");
+  });
 });
 
 describe("CoordinadorAreaView", () => {

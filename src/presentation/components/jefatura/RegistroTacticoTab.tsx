@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   ChevronDown,
   CloudRain,
-  Copy,
   Crosshair,
   Droplets,
   Flame,
@@ -158,9 +157,10 @@ export function RegistroTacticoTab() {
   const [activeStep, setActiveStep] = useState<number>(2);
 
   // Header State
-  const [incidentCode, setIncidentCode] = useState("INC-2026-00143");
-  const [codeCopied, setCodeCopied] = useState(false);
-  const [syncTimestamp, setSyncTimestamp] = useState("10 FEB 2026, 18:04:12 -05");
+  // The audit code is allocated by the backend when the incident is registered, so a
+  // draft has none. Keep it absent instead of showing a sequential code that does not
+  // exist in the system; the timestamp stays empty until the operator syncs the GPS.
+  const [syncTimestamp, setSyncTimestamp] = useState<string | null>(null);
   const [lastNotification, setLastNotification] = useState<string | null>(null);
 
   // Module A State
@@ -212,22 +212,6 @@ export function RegistroTacticoTab() {
   });
 
   // Handlers
-  const handleCopyCode = async () => {
-    try {
-      await navigator.clipboard.writeText(incidentCode);
-      setCodeCopied(true);
-      setTimeout(() => setCodeCopied(false), 2000);
-    } catch {
-      setCodeCopied(true);
-      setTimeout(() => setCodeCopied(false), 2000);
-    }
-  };
-
-  const handleRefreshCode = () => {
-    const randomNum = Math.floor(144 + Math.random() * 850);
-    setIncidentCode(`INC-2026-00${randomNum}`);
-  };
-
   const handleRefreshGps = () => {
     const latOffset = (Math.random() - 0.5) * 0.02;
     const lngOffset = (Math.random() - 0.5) * 0.02;
@@ -278,11 +262,11 @@ export function RegistroTacticoTab() {
   };
 
   const handleRegisterIncident = () => {
-    setLastNotification(`¡Incidencia ${incidentCode} REGISTRADA con éxito en la red COEN/INDECI! Brigada ${selectedBrigadeUnit.toUpperCase()} notificada.`);
+    setLastNotification(`Incidencia registrada en la red COEN/INDECI. Brigada ${selectedBrigadeUnit.toUpperCase()} notificada. El código de auditoría se asigna al confirmar el registro.`);
   };
 
   const handleSaveDraft = () => {
-    setLastNotification(`Borrador de ${incidentCode} guardado en el Cache Local Seguro (IndexDB/LocalStorage cifrado AES-256).`);
+    setLastNotification("Borrador guardado en el cache local seguro (IndexedDB/LocalStorage cifrado AES-256).");
   };
 
   const handleEmitSismate = () => {
@@ -291,24 +275,21 @@ export function RegistroTacticoTab() {
 
   return (
     <div className="space-y-6">
-      {/* Tactical Banner & Command Header */}
-      <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-[#071938] to-[#040e22] p-6 text-on-primary shadow-xl border border-secondary/30">
-        <div className="absolute right-0 top-0 -mr-16 -mt-16 h-64 w-64 rounded-full bg-secondary/15 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-20 h-48 w-48 rounded-full bg-orange-600/10 blur-2xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+      {/* Tactical Command Header */}
+      <header className="rounded-xl bg-white p-6 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold tracking-wider text-sky-200 backdrop-blur-md">
-              <Shield className="h-3.5 w-3.5 text-orange-400" />
+            <div className="inline-flex items-center gap-2 rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold tracking-wider text-brand-blue">
+              <Shield className="h-3.5 w-3.5 text-ladp-orange" />
               <span>Comando Operativo / Registro Táctico de Incidencias en Campo</span>
             </div>
-            <p className="text-[11px] font-black uppercase tracking-widest text-orange-400">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-ladp-orange">
               PROTOCOLO EDAN PERÚ — FORMULARIO DE EVALUACIÓN RÁPIDA
             </p>
-            <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-brand-ink">
               REGISTRO TÁCTICO DE INCIDENCIA DE CAMPO
             </h2>
-            <p className="max-w-3xl text-xs sm:text-sm text-sky-100/80 font-medium leading-relaxed">
+            <p className="max-w-3xl text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
               Ingreso inmediato de reportes georreferenciados, evaluación preliminar de severidad
               hidrometeorológica, asignación de cuadrante y despacho de recursos de respuesta rápida
               ante el Fenómeno El Niño 2026.
@@ -316,49 +297,27 @@ export function RegistroTacticoTab() {
           </div>
 
           {/* Quick Action / Telemetry Header Box */}
-          <div className="flex flex-col sm:flex-row lg:flex-col gap-3 shrink-0">
+          <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 shrink-0">
             {/* SAT Telemetry pill */}
-            <div className="flex items-center justify-between gap-3 rounded-xl bg-black/40 border border-white/10 px-3.5 py-2 backdrop-blur-md">
+            <div className="flex items-center justify-between gap-3 rounded-lg bg-brand-mist px-3.5 py-2">
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
                 </span>
-                <span className="text-xs font-bold text-emerald-300">Telemetría SAT En Línea</span>
+                <span className="text-xs font-bold text-brand-positive">Telemetría SAT En Línea</span>
               </div>
-              <span className="font-mono text-[11px] text-white/70">(BGAN/Starlink)</span>
+              <span className="font-mono text-[11px] text-slate-500">(BGAN/Starlink)</span>
             </div>
 
-            {/* Generated Code Display */}
-            <div className="flex items-center justify-between gap-2 rounded-xl bg-orange-500/10 border border-orange-500/30 px-3.5 py-2">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-orange-300">
-                  Código Sugerido
-                </span>
-                <span className="font-mono text-sm font-black text-orange-400 tracking-wider">
-                  {incidentCode}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  data-testid="test-code-copy"
-                  onClick={handleCopyCode}
-                  title="Copiar código al portapapeles"
-                  className="rounded-lg bg-white/10 p-1.5 text-white/90 hover:bg-white/20 transition-colors"
-                >
-                  {codeCopied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
-                </button>
-                <button
-                  type="button"
-                  data-testid="test-refresh-code"
-                  onClick={handleRefreshCode}
-                  title="Generar nuevo correlativo"
-                  className="rounded-lg bg-white/10 p-1.5 text-white/90 hover:bg-white/20 transition-colors"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </button>
-              </div>
+            {/* Audit code: allocated by the backend on registration, never faked here. */}
+            <div className="flex items-center justify-between gap-2 rounded-lg bg-brand-mist px-3.5 py-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Código de auditoría
+              </span>
+              <span className="font-mono text-[11px] font-bold text-slate-700">
+                Pendiente de asignación
+              </span>
             </div>
 
             {/* Drafts indicator */}
@@ -366,9 +325,9 @@ export function RegistroTacticoTab() {
               type="button"
               data-testid="test-load-draft"
               onClick={handleSaveDraft}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/5 border border-white/15 px-3 py-2 text-xs font-bold text-sky-200 hover:bg-white/10 transition-colors"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-soft px-3.5 py-2 text-xs font-bold text-brand-blue hover:bg-brand-blue hover:text-white transition-colors"
             >
-              <History className="h-3.5 w-3.5 text-sky-300" />
+              <History className="h-3.5 w-3.5" />
               <span>Cargar Borrador Local (3 pendientes)</span>
             </button>
           </div>
@@ -378,16 +337,16 @@ export function RegistroTacticoTab() {
         {lastNotification ? (
           <div
             role="status"
-            className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-emerald-950/80 border border-emerald-500/50 p-3 text-xs font-semibold text-emerald-200"
+            className="mt-4 flex items-center justify-between gap-3 rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs font-semibold text-emerald-800"
           >
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              <CheckCircle2 className="h-4 w-4 text-brand-positive shrink-0" />
               <span>{lastNotification}</span>
             </div>
             <button
               type="button"
               onClick={() => setLastNotification(null)}
-              className="rounded p-1 hover:bg-white/10 text-emerald-300"
+              className="rounded p-1 hover:bg-emerald-100 text-emerald-700"
             >
               ✕
             </button>
@@ -396,25 +355,25 @@ export function RegistroTacticoTab() {
       </header>
 
       {/* 4-Step Stepper Bar */}
-      <nav aria-label="Progreso del formulario táctico" className="rounded-2xl bg-surface-container-lowest p-3 shadow-sm border border-surface-container-high/40">
+      <nav aria-label="Progreso del formulario táctico" className="rounded-xl bg-white p-3 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
         <ol className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
           <li
             data-testid="test-step-1"
             onClick={() => setActiveStep(1)}
-            className={`cursor-pointer rounded-xl p-3 flex items-center gap-3 transition-all border ${
+            className={`cursor-pointer rounded-lg p-3 flex items-center gap-3 transition-all border ${
               activeStep === 1
-                ? "bg-secondary/10 border-secondary text-primary"
-                : "border-transparent hover:bg-surface-container-low text-on-surface-variant"
+                ? "bg-brand-soft border-brand-blue text-brand-ink"
+                : "border-transparent bg-brand-mist/60 hover:bg-brand-mist text-slate-500"
             }`}
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white font-black text-xs">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-positive text-white font-bold text-xs">
               <Check className="h-4 w-4 stroke-[3]" />
             </div>
             <div className="min-w-0">
-              <span className="block text-[11px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-brand-positive">
                 Paso 1 · Validado
               </span>
-              <span className="block truncate text-xs font-bold text-on-surface">
+              <span className="block truncate text-xs font-bold text-brand-ink">
                 Datos de Fuente y Brigada
               </span>
             </div>
@@ -423,30 +382,30 @@ export function RegistroTacticoTab() {
           <li
             data-testid="test-step-2"
             onClick={() => setActiveStep(2)}
-            className={`cursor-pointer rounded-xl p-3 flex items-center gap-3 transition-all border ${
+            className={`cursor-pointer rounded-lg p-3 flex items-center gap-3 transition-all border ${
               activeStep === 2
-                ? "bg-secondary text-on-secondary border-secondary shadow-sm"
-                : "border-transparent hover:bg-surface-container-low text-on-surface-variant"
+                ? "bg-brand-blue text-white border-brand-blue shadow-xs"
+                : "border-transparent bg-brand-mist/60 hover:bg-brand-mist text-slate-500"
             }`}
           >
             <div
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-black text-xs ${
-                activeStep === 2 ? "bg-white text-secondary" : "bg-secondary/20 text-secondary"
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-bold text-xs ${
+                activeStep === 2 ? "bg-white text-brand-blue" : "bg-brand-soft text-brand-blue"
               }`}
             >
               2
             </div>
             <div className="min-w-0">
               <span
-                className={`block text-[11px] font-black uppercase tracking-wider ${
-                  activeStep === 2 ? "text-sky-200" : "text-secondary"
+                className={`block text-[11px] font-bold uppercase tracking-wider ${
+                  activeStep === 2 ? "text-blue-100" : "text-brand-blue"
                 }`}
               >
                 Paso 2 · En Curso
               </span>
               <span
                 className={`block truncate text-xs font-bold ${
-                  activeStep === 2 ? "text-white" : "text-on-surface"
+                  activeStep === 2 ? "text-white" : "text-brand-ink"
                 }`}
               >
                 Georreferenciación y Cuadrante
@@ -457,20 +416,20 @@ export function RegistroTacticoTab() {
           <li
             data-testid="test-step-3"
             onClick={() => setActiveStep(3)}
-            className={`cursor-pointer rounded-xl p-3 flex items-center gap-3 transition-all border ${
+            className={`cursor-pointer rounded-lg p-3 flex items-center gap-3 transition-all border ${
               activeStep === 3
-                ? "bg-secondary/10 border-secondary text-primary"
-                : "border-transparent hover:bg-surface-container-low text-on-surface-variant"
+                ? "bg-brand-soft border-brand-blue text-brand-ink"
+                : "border-transparent bg-brand-mist/60 hover:bg-brand-mist text-slate-500"
             }`}
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-container-high text-on-surface font-black text-xs">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-200 text-brand-ink font-bold text-xs">
               3
             </div>
             <div className="min-w-0">
-              <span className="block text-[11px] font-black uppercase tracking-wider text-on-surface-variant">
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 Paso 3 · Pendiente
               </span>
-              <span className="block truncate text-xs font-bold text-on-surface">
+              <span className="block truncate text-xs font-bold text-brand-ink">
                 Evaluación EDAN y Población
               </span>
             </div>
@@ -479,20 +438,20 @@ export function RegistroTacticoTab() {
           <li
             data-testid="test-step-4"
             onClick={() => setActiveStep(4)}
-            className={`cursor-pointer rounded-xl p-3 flex items-center gap-3 transition-all border ${
+            className={`cursor-pointer rounded-lg p-3 flex items-center gap-3 transition-all border ${
               activeStep === 4
-                ? "bg-secondary/10 border-secondary text-primary"
-                : "border-transparent hover:bg-surface-container-low text-on-surface-variant"
+                ? "bg-brand-soft border-brand-blue text-brand-ink"
+                : "border-transparent bg-brand-mist/60 hover:bg-brand-mist text-slate-500"
             }`}
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-container-high text-on-surface font-black text-xs">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-200 text-brand-ink font-bold text-xs">
               4
             </div>
             <div className="min-w-0">
-              <span className="block text-[11px] font-black uppercase tracking-wider text-on-surface-variant">
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 Paso 4 · Pendiente
               </span>
-              <span className="block truncate text-xs font-bold text-on-surface">
+              <span className="block truncate text-xs font-bold text-brand-ink">
                 Evidencia y Despacho
               </span>
             </div>
@@ -505,40 +464,40 @@ export function RegistroTacticoTab() {
         {/* Left Column: Form Modules (8 Cols) */}
         <div className="lg:col-span-8 space-y-6">
           {/* Módulo A: Identificación de la Fuente y Tipo de Evento */}
-          <section className="rounded-2xl bg-surface-container-lowest p-5 sm:p-6 shadow-sm border border-surface-container-high/40 space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-container-high/30 pb-3">
+          <section className="rounded-xl bg-white p-5 sm:p-6 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-secondary text-on-secondary text-xs font-bold">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-blue text-white text-xs font-bold">
                   A
                 </span>
-                <h3 className="text-sm sm:text-base font-black text-on-surface">
+                <h3 className="text-sm sm:text-base font-bold text-brand-ink">
                   Identificación de la Fuente y Tipo de Evento
                 </h3>
               </div>
-              <span className="rounded-full bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300 px-2.5 py-0.5 text-[11px] font-black uppercase">
+              <span className="rounded-full bg-rose-50 text-brand-negative px-2.5 py-0.5 text-[11px] font-bold uppercase">
                 Prioridad Alta
               </span>
             </div>
 
             {/* Officer, Channel & Sync Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
               {/* Informant */}
-              <div className="space-y-1.5 rounded-xl bg-surface-container-low/60 p-3 border border-surface-container-high/30">
-                <div className="flex items-center justify-between text-[11px] font-bold text-on-surface-variant">
+              <div className="md:col-span-4 space-y-1.5 rounded-xl bg-brand-mist p-3.5">
+                <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
                   <span>Oficial Informante</span>
-                  <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-black">
+                  <span className="inline-flex items-center gap-1 text-brand-positive font-bold">
                     <UserCheck className="h-3 w-3" /> Verificado
                   </span>
                 </div>
-                <p className="text-xs font-black text-on-surface">Cmdte. Manuel Vásquez T.</p>
-                <p className="text-[11px] text-on-surface-variant font-medium">Patrulla Táctica Bravo-3</p>
+                <p className="text-xs font-bold text-brand-ink">Cmdte. Manuel Vásquez T.</p>
+                <p className="text-[11px] text-slate-500 font-medium">Patrulla Táctica Bravo-3</p>
               </div>
 
               {/* Channel */}
-              <div className="space-y-1.5 rounded-xl bg-surface-container-low/60 p-3 border border-surface-container-high/30">
+              <div className="md:col-span-5 space-y-1.5 rounded-xl bg-brand-mist p-3.5">
                 <label
                   htmlFor={`${compId}-channel-select`}
-                  className="block text-[11px] font-bold text-on-surface-variant"
+                  className="block text-[11px] font-bold text-slate-500"
                 >
                   Canal de Transmisión
                 </label>
@@ -548,29 +507,31 @@ export function RegistroTacticoTab() {
                     data-testid="channel-select"
                     value={reportingChannel}
                     onChange={(e) => setReportingChannel(e.target.value)}
-                    className="w-full appearance-none rounded-lg bg-surface-container-lowest border border-surface-container-high/60 py-1.5 pl-2.5 pr-8 text-xs font-bold text-on-surface focus:border-secondary focus:outline-none"
+                    className="w-full appearance-none rounded-lg bg-white border border-slate-200/80 py-1.5 pl-2.5 pr-7 text-xs font-semibold text-brand-ink focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
                   >
                     <option value="bgan">Terminal Satelital Móvil (BGAN)</option>
                     <option value="radio">Radio HF/VHF Operacional (Red PNP)</option>
                     <option value="movil">Formulario Móvil de Campo (Cache local)</option>
                     <option value="fibra">Enlace Directo COER Piura (Enlace Fibra)</option>
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-on-surface-variant" />
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 </div>
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Cifrado Operativo FIPS 140-2</p>
+                <p className="text-[10px] text-brand-positive font-bold">Cifrado Operativo FIPS 140-2</p>
               </div>
 
               {/* Timestamp */}
-              <div className="space-y-1.5 rounded-xl bg-surface-container-low/60 p-3 border border-surface-container-high/30">
-                <div className="flex items-center justify-between text-[11px] font-bold text-on-surface-variant">
+              <div className="md:col-span-3 space-y-1.5 rounded-xl bg-brand-mist p-3.5">
+                <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
                   <span>Marca de Tiempo</span>
-                  <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400">GPS Sync</span>
+                  <span className="text-[10px] font-bold text-brand-blue">GPS Sync</span>
                 </div>
-                <p className="text-xs font-mono font-bold text-on-surface">{syncTimestamp}</p>
+                <p className="text-xs font-mono font-bold text-brand-ink">
+                  {syncTimestamp ?? "Pendiente de sincronización GPS"}
+                </p>
                 <button
                   type="button"
                   onClick={handleRefreshGps}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-secondary hover:underline"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-blue hover:underline"
                 >
                   <RefreshCw className="h-3 w-3" /> Resincronizar RTC
                 </button>
@@ -579,7 +540,7 @@ export function RegistroTacticoTab() {
 
             {/* Phenomenon Type Selection Grid */}
             <div className="space-y-2">
-              <label className="block text-xs font-black uppercase tracking-wider text-on-surface">
+              <label className="block text-xs font-bold uppercase tracking-wider text-brand-ink">
                 Tipo de Fenómeno Principal (Selección Obligatoria):
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -594,29 +555,29 @@ export function RegistroTacticoTab() {
                       onClick={() => setPhenomenon(item.id)}
                       className={`relative flex flex-col items-start gap-2 rounded-xl p-3 text-left transition-all border-2 ${
                         isSelected
-                          ? "border-secondary bg-secondary/10 shadow-sm"
-                          : "border-surface-container-high/40 bg-surface-container-lowest hover:border-surface-container-high hover:bg-surface-container-low/40"
+                          ? "border-brand-blue bg-brand-soft/60 shadow-xs"
+                          : "border-slate-200/80 bg-white hover:border-slate-300 hover:bg-brand-mist/50"
                       }`}
                     >
                       <div className="flex w-full items-center justify-between">
                         <div
                           className={`flex h-8 w-8 items-center justify-center rounded-lg ${
                             isSelected
-                              ? "bg-secondary text-on-secondary"
-                              : "bg-surface-container-high text-on-surface"
+                              ? "bg-brand-blue text-white"
+                              : "bg-brand-mist text-brand-ink"
                           }`}
                         >
                           <Icon className="h-4 w-4" />
                         </div>
-                        <span className="rounded-full bg-surface-container-high/60 px-2 py-0.5 text-[10px] font-black uppercase text-on-surface-variant">
+                        <span className="rounded-full bg-brand-mist px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">
                           {item.badge}
                         </span>
                       </div>
                       <div>
-                        <span className="block text-xs font-black text-on-surface">
+                        <span className="block text-xs font-bold text-brand-ink">
                           {item.title}
                         </span>
-                        <span className="block text-[11px] text-on-surface-variant font-medium leading-tight mt-0.5">
+                        <span className="block text-[11px] text-slate-500 font-medium leading-tight mt-0.5">
                           {item.description}
                         </span>
                       </div>
@@ -628,13 +589,13 @@ export function RegistroTacticoTab() {
           </section>
 
           {/* Módulo B: Georreferenciación Precisa y Ubicación Territorial */}
-          <section className="rounded-2xl bg-surface-container-lowest p-5 sm:p-6 shadow-sm border border-surface-container-high/40 space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-container-high/30 pb-3">
+          <section className="rounded-xl bg-white p-5 sm:p-6 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-secondary text-on-secondary text-xs font-bold">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-blue text-white text-xs font-bold">
                   B
                 </span>
-                <h3 className="text-sm sm:text-base font-black text-on-surface">
+                <h3 className="text-sm sm:text-base font-bold text-brand-ink">
                   Georreferenciación Precisa y Ubicación Territorial
                 </h3>
               </div>
@@ -642,7 +603,7 @@ export function RegistroTacticoTab() {
                 type="button"
                 data-testid="gps-btn"
                 onClick={handleRefreshGps}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-secondary/10 hover:bg-secondary/20 text-secondary px-3 py-1.5 text-xs font-black transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-soft hover:bg-brand-blue text-brand-blue hover:text-white px-3 py-1.5 text-xs font-bold transition-colors"
               >
                 <Crosshair className="h-3.5 w-3.5" />
                 <span>Obtener GPS Dispositivo ({gpsAccuracy})</span>
@@ -655,7 +616,7 @@ export function RegistroTacticoTab() {
               <div className="space-y-1">
                 <label
                   htmlFor={`${compId}-region-select`}
-                  className="block text-[11px] font-bold text-on-surface-variant"
+                  className="block text-[11px] font-bold text-slate-500"
                 >
                   Departamento / Región
                 </label>
@@ -665,7 +626,7 @@ export function RegistroTacticoTab() {
                     data-testid="region-select"
                     value={selectedRegion}
                     onChange={(e) => handleRegionChange(e.target.value)}
-                    className="w-full appearance-none rounded-xl bg-surface-container-low border border-surface-container-high/60 py-2 pl-3 pr-8 text-xs font-bold text-on-surface focus:border-secondary focus:outline-none"
+                    className="w-full appearance-none rounded-lg bg-brand-mist py-2 pl-3 pr-8 text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                   >
                     {Object.keys(GEOGRAPHIC_DATA).map((reg) => (
                       <option key={reg} value={reg}>
@@ -673,7 +634,7 @@ export function RegistroTacticoTab() {
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-on-surface-variant" />
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 </div>
               </div>
 
@@ -681,7 +642,7 @@ export function RegistroTacticoTab() {
               <div className="space-y-1">
                 <label
                   htmlFor={`${compId}-provincia-select`}
-                  className="block text-[11px] font-bold text-on-surface-variant"
+                  className="block text-[11px] font-bold text-slate-500"
                 >
                   Provincia
                 </label>
@@ -691,7 +652,7 @@ export function RegistroTacticoTab() {
                     data-testid="provincia-select"
                     value={selectedProvincia}
                     onChange={(e) => handleProvinciaChange(e.target.value)}
-                    className="w-full appearance-none rounded-xl bg-surface-container-low border border-surface-container-high/60 py-2 pl-3 pr-8 text-xs font-bold text-on-surface focus:border-secondary focus:outline-none"
+                    className="w-full appearance-none rounded-lg bg-brand-mist py-2 pl-3 pr-8 text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                   >
                     {Object.keys(GEOGRAPHIC_DATA[selectedRegion]?.provincias ?? {}).map((prov) => (
                       <option key={prov} value={prov}>
@@ -699,7 +660,7 @@ export function RegistroTacticoTab() {
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-on-surface-variant" />
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 </div>
               </div>
 
@@ -707,7 +668,7 @@ export function RegistroTacticoTab() {
               <div className="space-y-1">
                 <label
                   htmlFor={`${compId}-distrito-select`}
-                  className="block text-[11px] font-bold text-on-surface-variant"
+                  className="block text-[11px] font-bold text-slate-500"
                 >
                   Distrito
                 </label>
@@ -717,7 +678,7 @@ export function RegistroTacticoTab() {
                     data-testid="distrito-select"
                     value={selectedDistrito}
                     onChange={(e) => handleDistritoChange(e.target.value)}
-                    className="w-full appearance-none rounded-xl bg-surface-container-low border border-surface-container-high/60 py-2 pl-3 pr-8 text-xs font-bold text-on-surface focus:border-secondary focus:outline-none"
+                    className="w-full appearance-none rounded-lg bg-brand-mist py-2 pl-3 pr-8 text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                   >
                     {(GEOGRAPHIC_DATA[selectedRegion]?.provincias[selectedProvincia] ?? []).map((dist) => (
                       <option key={dist} value={dist}>
@@ -725,7 +686,7 @@ export function RegistroTacticoTab() {
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-on-surface-variant" />
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 </div>
               </div>
 
@@ -733,7 +694,7 @@ export function RegistroTacticoTab() {
               <div className="space-y-1">
                 <label
                   htmlFor={`${compId}-caserio-select`}
-                  className="block text-[11px] font-bold text-on-surface-variant"
+                  className="block text-[11px] font-bold text-slate-500"
                 >
                   Caserío / Centro Poblado
                 </label>
@@ -743,7 +704,7 @@ export function RegistroTacticoTab() {
                     data-testid="caserio-select"
                     value={selectedCaserio}
                     onChange={(e) => setSelectedCaserio(e.target.value)}
-                    className="w-full appearance-none rounded-xl bg-surface-container-low border border-surface-container-high/60 py-2 pl-3 pr-8 text-xs font-bold text-on-surface focus:border-secondary focus:outline-none"
+                    className="w-full appearance-none rounded-lg bg-brand-mist py-2 pl-3 pr-8 text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                   >
                     {(CASERIOS_MAP[selectedDistrito] ?? ["Sector Central", "Zona Rural"]).map((cas) => (
                       <option key={cas} value={cas}>
@@ -751,7 +712,7 @@ export function RegistroTacticoTab() {
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-on-surface-variant" />
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 </div>
               </div>
             </div>
@@ -759,7 +720,7 @@ export function RegistroTacticoTab() {
             {/* Coordinates Inputs Row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="space-y-1">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface-variant">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Latitud (WGS84)
                 </label>
                 <input
@@ -767,12 +728,12 @@ export function RegistroTacticoTab() {
                   data-testid="lat-input"
                   value={latitude}
                   onChange={(e) => setLatitude(e.target.value)}
-                  className="w-full rounded-xl bg-surface-container-low border border-surface-container-high/60 px-3 py-2 font-mono text-xs font-bold text-on-surface focus:border-secondary focus:outline-none"
+                  className="w-full rounded-lg bg-brand-mist px-3 py-2 font-mono text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface-variant">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Longitud (WGS84)
                 </label>
                 <input
@@ -780,41 +741,41 @@ export function RegistroTacticoTab() {
                   data-testid="lng-input"
                   value={longitude}
                   onChange={(e) => setLongitude(e.target.value)}
-                  className="w-full rounded-xl bg-surface-container-low border border-surface-container-high/60 px-3 py-2 font-mono text-xs font-bold text-on-surface focus:border-secondary focus:outline-none"
+                  className="w-full rounded-lg bg-brand-mist px-3 py-2 font-mono text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface-variant">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Altitud / Cota
                 </label>
                 <input
                   type="text"
                   value={altitude}
                   onChange={(e) => setAltitude(e.target.value)}
-                  className="w-full rounded-xl bg-surface-container-low border border-surface-container-high/60 px-3 py-2 font-mono text-xs font-bold text-on-surface focus:border-secondary focus:outline-none"
+                  className="w-full rounded-lg bg-brand-mist px-3 py-2 font-mono text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-on-surface-variant">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Zona UTM
                 </label>
                 <input
                   type="text"
                   value={utmZone}
                   onChange={(e) => setUtmZone(e.target.value)}
-                  className="w-full rounded-xl bg-surface-container-low border border-surface-container-high/60 px-3 py-2 font-mono text-xs font-bold text-on-surface focus:border-secondary focus:outline-none"
+                  className="w-full rounded-lg bg-brand-mist px-3 py-2 font-mono text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                 />
               </div>
             </div>
 
             {/* Tactical Mini Map Preview */}
-            <div className="relative overflow-hidden rounded-xl border border-surface-container-high/60 bg-slate-900 p-4 text-white">
+            <div className="relative overflow-hidden rounded-xl bg-brand-deep p-4 text-white">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2 mb-3">
                 <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-orange-400" />
-                  <span className="text-xs font-black text-sky-200">
+                  <MapPin className="h-4 w-4 text-ladp-orange" />
+                  <span className="text-xs font-bold text-blue-100">
                     Detección Hidrológica: Cuenca Río Piura (Sector Medio - {selectedDistrito})
                   </span>
                 </div>
@@ -823,7 +784,7 @@ export function RegistroTacticoTab() {
                     type="button"
                     onClick={() => setActiveMapLayer("satelite")}
                     className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase transition-colors ${
-                      activeMapLayer === "satelite" ? "bg-secondary text-white" : "bg-white/10 text-white/70 hover:bg-white/20"
+                      activeMapLayer === "satelite" ? "bg-brand-blue text-white" : "bg-white/10 text-white/75 hover:bg-white/20"
                     }`}
                   >
                     Satélite
@@ -832,7 +793,7 @@ export function RegistroTacticoTab() {
                     type="button"
                     onClick={() => setActiveMapLayer("topografia")}
                     className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase transition-colors ${
-                      activeMapLayer === "topografia" ? "bg-secondary text-white" : "bg-white/10 text-white/70 hover:bg-white/20"
+                      activeMapLayer === "topografia" ? "bg-brand-blue text-white" : "bg-white/10 text-white/75 hover:bg-white/20"
                     }`}
                   >
                     Topografía
@@ -841,7 +802,7 @@ export function RegistroTacticoTab() {
                     type="button"
                     onClick={() => setActiveMapLayer("inundacion")}
                     className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase transition-colors ${
-                      activeMapLayer === "inundacion" ? "bg-orange-600 text-white" : "bg-white/10 text-white/70 hover:bg-white/20"
+                      activeMapLayer === "inundacion" ? "bg-ladp-orange text-white" : "bg-white/10 text-white/75 hover:bg-white/20"
                     }`}
                   >
                     Inundación 2017
@@ -850,7 +811,7 @@ export function RegistroTacticoTab() {
               </div>
 
               {/* Stylized Vector Radar Preview Canvas */}
-              <div className="relative h-44 w-full rounded-lg bg-[#0b172a] overflow-hidden flex items-center justify-center">
+              <div className="relative h-44 w-full rounded-lg bg-[#04122b] overflow-hidden flex items-center justify-center">
                 {/* Grid Overlay */}
                 <svg className="absolute inset-0 h-full w-full opacity-20" xmlns="http://www.w3.org/2000/svg">
                   <defs>
@@ -891,38 +852,38 @@ export function RegistroTacticoTab() {
                 {/* Pulsing Tactical Pin */}
                 <div className="relative z-10 flex flex-col items-center">
                   <span className="relative flex h-5 w-5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
-                    <span className="relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white font-bold text-[9px]">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ladp-orange opacity-75" />
+                    <span className="relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-ladp-orange text-white font-bold text-[9px]">
                       📍
                     </span>
                   </span>
-                  <div className="mt-1 rounded bg-black/80 px-2 py-0.5 text-[10px] font-mono font-bold text-orange-300 backdrop-blur-sm">
+                  <div className="mt-1 rounded bg-brand-deep/85 px-2 py-0.5 text-[10px] font-mono font-bold text-amber-300 backdrop-blur-sm">
                     {latitude}, {longitude}
                   </div>
-                  <span className="text-[9px] font-bold text-white/80">{selectedCaserio}</span>
+                  <span className="text-[9px] font-bold text-white/85">{selectedCaserio}</span>
                 </div>
 
                 {/* Mini Compass */}
-                <div className="absolute top-2 right-2 flex flex-col items-center rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-mono text-sky-400 backdrop-blur-sm">
+                <div className="absolute top-2 right-2 flex flex-col items-center rounded bg-brand-deep/75 px-1.5 py-0.5 text-[9px] font-mono text-blue-200 backdrop-blur-sm">
                   <span>N</span>
-                  <Navigation className="h-3 w-3 text-sky-400 rotate-45" />
+                  <Navigation className="h-3 w-3 text-blue-200 rotate-45" />
                 </div>
               </div>
             </div>
           </section>
 
           {/* Módulo C: Cuantificación Preliminar de Afectación y Necesidades (EDAN) */}
-          <section className="rounded-2xl bg-surface-container-lowest p-5 sm:p-6 shadow-sm border border-surface-container-high/40 space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-container-high/30 pb-3">
+          <section className="rounded-xl bg-white p-5 sm:p-6 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-secondary text-on-secondary text-xs font-bold">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-blue text-white text-xs font-bold">
                   C
                 </span>
-                <h3 className="text-sm sm:text-base font-black text-on-surface">
+                <h3 className="text-sm sm:text-base font-bold text-brand-ink">
                   Cuantificación Preliminar de Afectación y Necesidades (EDAN)
                 </h3>
               </div>
-              <span className="text-xs font-bold text-on-surface-variant">
+              <span className="text-xs font-bold text-slate-500">
                 Validación de primer impacto
               </span>
             </div>
@@ -930,17 +891,17 @@ export function RegistroTacticoTab() {
             {/* Numeric Steppers Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Familias */}
-              <div className="rounded-xl bg-surface-container-low p-3.5 border border-surface-container-high/40 space-y-2">
-                <div className="flex items-center justify-between text-on-surface">
-                  <span className="text-xs font-black">Familias Afectadas</span>
-                  <Home className="h-4 w-4 text-secondary" />
+              <div className="rounded-xl bg-brand-mist p-3.5 space-y-2">
+                <div className="flex items-center justify-between text-brand-ink">
+                  <span className="text-xs font-bold">Familias Afectadas</span>
+                  <Home className="h-4 w-4 text-brand-blue" />
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
                     data-testid="counter-familias-dec"
                     onClick={() => setFamiliasAfectadas((v) => Math.max(0, v - 5))}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface font-black hover:bg-surface-container-high transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
                   >
                     -
                   </button>
@@ -949,31 +910,31 @@ export function RegistroTacticoTab() {
                     data-testid="counter-familias-input"
                     value={familiasAfectadas}
                     onChange={(e) => setFamiliasAfectadas(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-16 text-center font-mono text-base font-black bg-surface-container-lowest rounded-lg border border-surface-container-high/60 py-1"
+                    className="w-16 text-center font-mono text-base font-bold text-brand-ink bg-white rounded-lg border border-slate-200/80 py-1 focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                   />
                   <button
                     type="button"
                     data-testid="counter-familias-inc"
                     onClick={() => setFamiliasAfectadas((v) => v + 5)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface font-black hover:bg-surface-container-high transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
                   >
                     +
                   </button>
                 </div>
-                <p className="text-[10px] text-on-surface-variant text-center font-medium">Viviendas anegadas</p>
+                <p className="text-[10px] text-slate-500 text-center font-medium">Viviendas anegadas</p>
               </div>
 
               {/* Damnificados */}
-              <div className="rounded-xl bg-surface-container-low p-3.5 border border-surface-container-high/40 space-y-2">
-                <div className="flex items-center justify-between text-on-surface">
-                  <span className="text-xs font-black">Damnificados Directos</span>
-                  <Users className="h-4 w-4 text-orange-600" />
+              <div className="rounded-xl bg-brand-mist p-3.5 space-y-2">
+                <div className="flex items-center justify-between text-brand-ink">
+                  <span className="text-xs font-bold">Damnificados Directos</span>
+                  <Users className="h-4 w-4 text-ladp-orange" />
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
                     onClick={() => setDamnificadosDirectos((v) => Math.max(0, v - 10))}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface font-black hover:bg-surface-container-high transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
                   >
                     -
                   </button>
@@ -981,30 +942,30 @@ export function RegistroTacticoTab() {
                     type="number"
                     value={damnificadosDirectos}
                     onChange={(e) => setDamnificadosDirectos(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-16 text-center font-mono text-base font-black bg-surface-container-lowest rounded-lg border border-surface-container-high/60 py-1"
+                    className="w-16 text-center font-mono text-base font-bold text-brand-ink bg-white rounded-lg border border-slate-200/80 py-1 focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                   />
                   <button
                     type="button"
                     onClick={() => setDamnificadosDirectos((v) => v + 10)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface font-black hover:bg-surface-container-high transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
                   >
                     +
                   </button>
                 </div>
-                <p className="text-[10px] text-on-surface-variant text-center font-medium">Pérdida habitacional</p>
+                <p className="text-[10px] text-slate-500 text-center font-medium">Pérdida habitacional</p>
               </div>
 
               {/* Menores / Lactantes */}
-              <div className="rounded-xl bg-surface-container-low p-3.5 border border-surface-container-high/40 space-y-2">
-                <div className="flex items-center justify-between text-on-surface">
-                  <span className="text-xs font-black">Menores / Lactantes</span>
+              <div className="rounded-xl bg-brand-mist p-3.5 space-y-2">
+                <div className="flex items-center justify-between text-brand-ink">
+                  <span className="text-xs font-bold">Menores / Lactantes</span>
                   <Baby className="h-4 w-4 text-sky-600" />
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
                     onClick={() => setMenoresLactantes((v) => Math.max(0, v - 2))}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface font-black hover:bg-surface-container-high transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
                   >
                     -
                   </button>
@@ -1012,30 +973,30 @@ export function RegistroTacticoTab() {
                     type="number"
                     value={menoresLactantes}
                     onChange={(e) => setMenoresLactantes(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-16 text-center font-mono text-base font-black bg-surface-container-lowest rounded-lg border border-surface-container-high/60 py-1"
+                    className="w-16 text-center font-mono text-base font-bold text-brand-ink bg-white rounded-lg border border-slate-200/80 py-1 focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                   />
                   <button
                     type="button"
                     onClick={() => setMenoresLactantes((v) => v + 2)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface font-black hover:bg-surface-container-high transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
                   >
                     +
                   </button>
                 </div>
-                <p className="text-[10px] text-on-surface-variant text-center font-medium">Atención nutricional</p>
+                <p className="text-[10px] text-slate-500 text-center font-medium">Atención nutricional</p>
               </div>
 
               {/* Adultos Mayores */}
-              <div className="rounded-xl bg-surface-container-low p-3.5 border border-surface-container-high/40 space-y-2">
-                <div className="flex items-center justify-between text-on-surface">
-                  <span className="text-xs font-black">Adultos Mayores / PcD</span>
-                  <HeartHandshake className="h-4 w-4 text-purple-600" />
+              <div className="rounded-xl bg-brand-mist p-3.5 space-y-2">
+                <div className="flex items-center justify-between text-brand-ink">
+                  <span className="text-xs font-bold">Adultos Mayores / PcD</span>
+                  <HeartHandshake className="h-4 w-4 text-violet-600" />
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
                     onClick={() => setAdultosMayores((v) => Math.max(0, v - 2))}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface font-black hover:bg-surface-container-high transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
                   >
                     -
                   </button>
@@ -1043,23 +1004,23 @@ export function RegistroTacticoTab() {
                     type="number"
                     value={adultosMayores}
                     onChange={(e) => setAdultosMayores(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-16 text-center font-mono text-base font-black bg-surface-container-lowest rounded-lg border border-surface-container-high/60 py-1"
+                    className="w-16 text-center font-mono text-base font-bold text-brand-ink bg-white rounded-lg border border-slate-200/80 py-1 focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                   />
                   <button
                     type="button"
                     onClick={() => setAdultosMayores((v) => v + 2)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-container-highest text-on-surface font-black hover:bg-surface-container-high transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
                   >
                     +
                   </button>
                 </div>
-                <p className="text-[10px] text-on-surface-variant text-center font-medium">Evacuación asistida</p>
+                <p className="text-[10px] text-slate-500 text-center font-medium">Evacuación asistida</p>
               </div>
             </div>
 
             {/* Transitability Radio Cards */}
             <div className="space-y-2">
-              <label className="block text-xs font-black uppercase tracking-wider text-on-surface">
+              <label className="block text-xs font-bold uppercase tracking-wider text-brand-ink">
                 Condición de Transitabilidad y Vías de Acceso
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -1074,14 +1035,14 @@ export function RegistroTacticoTab() {
                     type="button"
                     data-testid={`transit-${item.id}`}
                     onClick={() => setTransitability(item.id as typeof transitability)}
-                    className={`rounded-xl p-3 text-left border-2 transition-all ${
+                    className={`rounded-lg p-3 text-left border-2 transition-all ${
                       transitability === item.id
-                        ? "border-orange-500 bg-orange-500/10 text-orange-950 dark:text-orange-100 font-bold"
-                        : "border-surface-container-high/40 bg-surface-container-lowest hover:bg-surface-container-low text-on-surface"
+                        ? "border-ladp-orange bg-amber-50/70 text-brand-ink font-bold"
+                        : "border-slate-200/80 bg-white hover:bg-brand-mist/60 text-brand-ink"
                     }`}
                   >
-                    <span className="block text-xs font-black">{item.label}</span>
-                    <span className="block text-[10px] text-on-surface-variant font-medium mt-0.5">{item.desc}</span>
+                    <span className="block text-xs font-bold">{item.label}</span>
+                    <span className="block text-[10px] text-slate-500 font-medium mt-0.5">{item.desc}</span>
                   </button>
                 ))}
               </div>
@@ -1089,7 +1050,7 @@ export function RegistroTacticoTab() {
 
             {/* Critical Basic Services Checklist */}
             <div className="space-y-2">
-              <label className="block text-xs font-black uppercase tracking-wider text-on-surface">
+              <label className="block text-xs font-bold uppercase tracking-wider text-brand-ink">
                 Afectación de Líneas Vitales y Servicios Básicos
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
@@ -1097,94 +1058,94 @@ export function RegistroTacticoTab() {
                   type="button"
                   data-testid="service-agua"
                   onClick={() => setServicesState((s) => ({ ...s, sinAgua: !s.sinAgua }))}
-                  className={`flex flex-col items-center justify-center gap-1.5 rounded-xl p-3 border text-center transition-all ${
+                  className={`flex flex-col items-center justify-center gap-1.5 rounded-lg p-3 border text-center transition-all ${
                     servicesState.sinAgua
-                      ? "bg-red-500/10 border-red-500 text-red-700 dark:text-red-300 font-bold"
-                      : "bg-surface-container-low border-surface-container-high/40 text-on-surface-variant"
+                      ? "bg-rose-50 border-brand-negative/50 text-brand-negative font-bold"
+                      : "bg-brand-mist border-transparent text-slate-500 hover:bg-brand-soft/60"
                   }`}
                 >
                   <Droplets className="h-4 w-4" />
-                  <span className="text-[11px] font-black leading-tight">Sin Agua Potable</span>
+                  <span className="text-[11px] font-bold leading-tight">Sin Agua Potable</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setServicesState((s) => ({ ...s, sinLuz: !s.sinLuz }))}
-                  className={`flex flex-col items-center justify-center gap-1.5 rounded-xl p-3 border text-center transition-all ${
+                  className={`flex flex-col items-center justify-center gap-1.5 rounded-lg p-3 border text-center transition-all ${
                     servicesState.sinLuz
-                      ? "bg-red-500/10 border-red-500 text-red-700 dark:text-red-300 font-bold"
-                      : "bg-surface-container-low border-surface-container-high/40 text-on-surface-variant"
+                      ? "bg-rose-50 border-brand-negative/50 text-brand-negative font-bold"
+                      : "bg-brand-mist border-transparent text-slate-500 hover:bg-brand-soft/60"
                   }`}
                 >
                   <ZapOff className="h-4 w-4" />
-                  <span className="text-[11px] font-black leading-tight">Corte Fluido Eléctrico</span>
+                  <span className="text-[11px] font-bold leading-tight">Corte Fluido Eléctrico</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setServicesState((s) => ({ ...s, sinCobertura: !s.sinCobertura }))}
-                  className={`flex flex-col items-center justify-center gap-1.5 rounded-xl p-3 border text-center transition-all ${
+                  className={`flex flex-col items-center justify-center gap-1.5 rounded-lg p-3 border text-center transition-all ${
                     servicesState.sinCobertura
-                      ? "bg-red-500/10 border-red-500 text-red-700 dark:text-red-300 font-bold"
-                      : "bg-surface-container-low border-surface-container-high/40 text-on-surface-variant"
+                      ? "bg-rose-50 border-brand-negative/50 text-brand-negative font-bold"
+                      : "bg-brand-mist border-transparent text-slate-500 hover:bg-brand-soft/60"
                   }`}
                 >
                   <PhoneOff className="h-4 w-4" />
-                  <span className="text-[11px] font-black leading-tight">Sin Cobertura Móvil</span>
+                  <span className="text-[11px] font-bold leading-tight">Sin Cobertura Móvil</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setServicesState((s) => ({ ...s, colapsoDesague: !s.colapsoDesague }))}
-                  className={`flex flex-col items-center justify-center gap-1.5 rounded-xl p-3 border text-center transition-all ${
+                  className={`flex flex-col items-center justify-center gap-1.5 rounded-lg p-3 border text-center transition-all ${
                     servicesState.colapsoDesague
-                      ? "bg-red-500/10 border-red-500 text-red-700 dark:text-red-300 font-bold"
-                      : "bg-surface-container-low border-surface-container-high/40 text-on-surface-variant"
+                      ? "bg-rose-50 border-brand-negative/50 text-brand-negative font-bold"
+                      : "bg-brand-mist border-transparent text-slate-500 hover:bg-brand-soft/60"
                   }`}
                 >
                   <AlertTriangle className="h-4 w-4" />
-                  <span className="text-[11px] font-black leading-tight">Colapso Alcantarillado</span>
+                  <span className="text-[11px] font-bold leading-tight">Colapso Alcantarillado</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setServicesState((s) => ({ ...s, saludAfectado: !s.saludAfectado }))}
-                  className={`flex flex-col items-center justify-center gap-1.5 rounded-xl p-3 border text-center transition-all ${
+                  className={`flex flex-col items-center justify-center gap-1.5 rounded-lg p-3 border text-center transition-all ${
                     servicesState.saludAfectado
-                      ? "bg-red-500/10 border-red-500 text-red-700 dark:text-red-300 font-bold"
-                      : "bg-surface-container-low border-surface-container-high/40 text-on-surface-variant"
+                      ? "bg-rose-50 border-brand-negative/50 text-brand-negative font-bold"
+                      : "bg-brand-mist border-transparent text-slate-500 hover:bg-brand-soft/60"
                   }`}
                 >
                   <Building2 className="h-4 w-4" />
-                  <span className="text-[11px] font-black leading-tight">Centro Salud Inundado</span>
+                  <span className="text-[11px] font-bold leading-tight">Centro Salud Inundado</span>
                 </button>
               </div>
             </div>
           </section>
 
           {/* Módulo D: Matriz de Severidad Sugerida */}
-          <section className="rounded-2xl bg-gradient-to-r from-red-950/20 via-orange-950/10 to-transparent p-5 sm:p-6 shadow-sm border border-red-500/30 space-y-3">
+          <section className="rounded-xl bg-rose-50/75 p-5 sm:p-6 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] border border-rose-200/80 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <ShieldAlert className="h-5 w-5 text-red-600 animate-pulse" />
-                <h3 className="text-sm sm:text-base font-black text-on-surface">
+                <ShieldAlert className="h-5 w-5 text-brand-negative animate-pulse" />
+                <h3 className="text-sm sm:text-base font-bold text-brand-ink">
                   Matriz de Severidad Sugerida (Cálculo Algorítmico Táctico)
                 </h3>
               </div>
-              <span className="rounded-full bg-red-600 text-white px-3 py-1 text-xs font-black tracking-wider uppercase shadow-sm">
+              <span className="rounded-full bg-brand-negative text-white px-3 py-1 text-xs font-bold tracking-wider uppercase shadow-xs">
                 Nivel 4 · Rojo Crítico
               </span>
             </div>
-            <div className="rounded-xl bg-surface-container-lowest/80 p-4 border border-red-500/20 text-xs text-on-surface space-y-2 leading-relaxed">
-              <p className="font-bold text-red-700 dark:text-red-400">
+            <div className="rounded-xl bg-white p-4 border border-rose-200/60 text-xs text-brand-ink space-y-2 leading-relaxed">
+              <p className="font-bold text-brand-negative">
                 Justificación Automática de Despacho Inmediato:
               </p>
-              <p className="font-medium text-on-surface-variant">
+              <p className="font-medium text-slate-600">
                 El sensor hidrométrico en estación Catacaos registró un caudal de{" "}
-                <strong className="text-on-surface">1,640 m³/s</strong> (superando el umbral de alerta
+                <strong className="text-brand-ink">1,640 m³/s</strong> (superando el umbral de alerta
                 roja de 1,500 m³/s). La combinación con{" "}
-                <strong className="text-on-surface">{familiasAfectadas} familias</strong> en condición de{" "}
-                <strong className="text-orange-600 font-bold uppercase">{transitability}</strong> califica
+                <strong className="text-brand-ink">{familiasAfectadas} familias</strong> en condición de{" "}
+                <strong className="text-ladp-orange font-bold uppercase">{transitability}</strong> califica
                 el incidente para intervención prioritaria de brigadas tácticas anfibias.
               </p>
             </div>
@@ -1194,22 +1155,22 @@ export function RegistroTacticoTab() {
         {/* Right Column: Support Panel, Evidence & Immediate Dispatch (4 Cols) */}
         <aside className="lg:col-span-4 space-y-6">
           {/* Multimedia Dropzone & Files */}
-          <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-sm border border-surface-container-high/40 space-y-4">
-            <div className="flex items-center justify-between border-b border-surface-container-high/30 pb-3">
-              <h3 className="text-sm font-black text-on-surface flex items-center gap-2">
-                <Paperclip className="h-4 w-4 text-secondary" />
+          <section className="rounded-xl bg-white p-5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-brand-ink flex items-center gap-2">
+                <Paperclip className="h-4 w-4 text-brand-blue" />
                 <span>Evidencia Multimedia</span>
               </h3>
-              <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase font-mono">
+              <span className="text-[10px] font-bold text-brand-blue uppercase font-mono">
                 AES-256
               </span>
             </div>
 
             {/* Dropzone mock */}
-            <div className="rounded-xl border-2 border-dashed border-surface-container-high/80 bg-surface-container-low/50 p-4 text-center hover:bg-surface-container-low transition-colors cursor-pointer">
-              <UploadCloud className="mx-auto h-8 w-8 text-secondary mb-1" />
-              <p className="text-xs font-bold text-on-surface">Arrastre fotos o videos aquí</p>
-              <p className="text-[10px] text-on-surface-variant font-medium mt-0.5">
+            <div className="rounded-xl border-2 border-dashed border-slate-200 bg-brand-mist/70 p-4 text-center hover:bg-brand-mist transition-colors cursor-pointer">
+              <UploadCloud className="mx-auto h-8 w-8 text-brand-blue mb-1" />
+              <p className="text-xs font-bold text-brand-ink">Arrastre fotos o videos aquí</p>
+              <p className="text-[10px] text-slate-500 font-medium mt-0.5">
                 Metadatos EXIF georreferenciados obligatorios
               </p>
             </div>
@@ -1219,11 +1180,11 @@ export function RegistroTacticoTab() {
               {uploadedFiles.map((f) => (
                 <div
                   key={f.id}
-                  className="flex items-center justify-between rounded-xl bg-surface-container-low p-2.5 border border-surface-container-high/40 text-xs"
+                  className="flex items-center justify-between rounded-lg bg-brand-mist p-2.5 text-xs"
                 >
                   <div className="min-w-0 pr-2">
-                    <p className="truncate font-bold text-on-surface">{f.name}</p>
-                    <div className="flex items-center gap-2 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                    <p className="truncate font-bold text-brand-ink">{f.name}</p>
+                    <div className="flex items-center gap-2 text-[10px] text-brand-positive font-bold">
                       <CheckCircle2 className="h-3 w-3" />
                       <span>{f.size} · GPS OK</span>
                     </div>
@@ -1232,7 +1193,7 @@ export function RegistroTacticoTab() {
                     type="button"
                     onClick={() => handleRemoveFile(f.id)}
                     title="Eliminar archivo"
-                    className="rounded-lg p-1 text-on-surface-variant hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                    className="rounded-lg p-1 text-slate-500 hover:text-brand-negative hover:bg-rose-50 transition-colors"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -1245,10 +1206,10 @@ export function RegistroTacticoTab() {
               type="button"
               data-testid="drone-stream-btn"
               onClick={() => setDroneStreamActive(!droneStreamActive)}
-              className={`w-full flex items-center justify-center gap-2 rounded-xl py-2 px-3 text-xs font-bold transition-all border ${
+              className={`w-full flex items-center justify-center gap-2 rounded-lg py-2 px-3 text-xs font-bold transition-all border ${
                 droneStreamActive
-                  ? "bg-secondary/10 border-secondary text-secondary"
-                  : "bg-surface-container-low border-surface-container-high/40 text-on-surface-variant hover:bg-surface-container-high/50"
+                  ? "bg-brand-soft border-brand-blue/40 text-brand-blue"
+                  : "bg-brand-mist border-transparent text-slate-600 hover:bg-brand-soft/60"
               }`}
             >
               <Video className="h-4 w-4" />
@@ -1259,13 +1220,13 @@ export function RegistroTacticoTab() {
           </section>
 
           {/* Despacho de Brigada (GPS Proximity) */}
-          <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-sm border border-surface-container-high/40 space-y-4">
-            <div className="flex items-center justify-between border-b border-surface-container-high/30 pb-3">
-              <h3 className="text-sm font-black text-on-surface flex items-center gap-2">
-                <Truck className="h-4 w-4 text-orange-600" />
+          <section className="rounded-xl bg-white p-5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-brand-ink flex items-center gap-2">
+                <Truck className="h-4 w-4 text-ladp-orange" />
                 <span>Despacho de Brigada</span>
               </h3>
-              <span className="text-[10px] font-bold text-orange-600 font-mono">GPS Proximity</span>
+              <span className="text-[10px] font-bold text-ladp-orange font-mono">GPS Proximity</span>
             </div>
 
             {/* Dispatch toggle */}
@@ -1275,11 +1236,11 @@ export function RegistroTacticoTab() {
                 data-testid="brigade-dispatch-checkbox"
                 checked={brigadeDispatchEnabled}
                 onChange={(e) => setBrigadeDispatchEnabled(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-surface-container-high text-secondary focus:ring-secondary"
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-blue focus:ring-brand-blue/25"
               />
-              <span className="text-xs font-bold text-on-surface leading-tight">
+              <span className="text-xs font-bold text-brand-ink leading-tight">
                 Activar Despacho Inmediato USAR / Anfibios
-                <span className="block text-[10px] text-on-surface-variant font-medium mt-0.5">
+                <span className="block text-[10px] text-slate-500 font-medium mt-0.5">
                   Despliegue de cuadrilla táctica en menos de 15 min
                 </span>
               </span>
@@ -1287,7 +1248,7 @@ export function RegistroTacticoTab() {
 
             {/* Units selection */}
             <div className="space-y-2">
-              <label className="block text-[11px] font-bold text-on-surface-variant">
+              <label className="block text-[11px] font-bold text-slate-500">
                 Unidad Más Cercana Detectada:
               </label>
               {[
@@ -1299,17 +1260,17 @@ export function RegistroTacticoTab() {
                   key={unit.id}
                   type="button"
                   onClick={() => setSelectedBrigadeUnit(unit.id)}
-                  className={`w-full flex items-center justify-between rounded-xl p-2.5 text-xs text-left transition-all border ${
+                  className={`w-full flex items-center justify-between rounded-lg p-2.5 text-xs text-left transition-all border ${
                     selectedBrigadeUnit === unit.id
-                      ? "border-secondary bg-secondary/10 font-bold text-primary"
-                      : "border-surface-container-high/40 bg-surface-container-low text-on-surface hover:bg-surface-container-high/40"
+                      ? "border-brand-blue bg-brand-soft/70 font-bold text-brand-ink"
+                      : "border-transparent bg-brand-mist text-brand-ink hover:bg-brand-soft/50"
                   }`}
                 >
                   <div>
-                    <p className="font-black text-on-surface">{unit.name}</p>
-                    <p className="text-[10px] text-on-surface-variant font-medium">{unit.dist}</p>
+                    <p className="font-bold text-brand-ink">{unit.name}</p>
+                    <p className="text-[10px] text-slate-500 font-medium">{unit.dist}</p>
                   </div>
-                  <span className="rounded-full bg-surface-container-highest px-2 py-0.5 text-[10px] font-bold uppercase text-secondary">
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase text-brand-blue">
                     {unit.status}
                   </span>
                 </button>
@@ -1317,17 +1278,17 @@ export function RegistroTacticoTab() {
             </div>
 
             {/* Requested Equipment to Base */}
-            <div className="space-y-2 pt-2 border-t border-surface-container-high/30">
-              <label className="block text-[11px] font-bold text-on-surface-variant">
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <label className="block text-[11px] font-bold text-slate-500">
                 Equipamiento Solicitado a Base:
               </label>
-              <div className="space-y-1.5 text-xs font-medium text-on-surface">
+              <div className="space-y-1.5 text-xs font-medium text-brand-ink">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={requestedEquipment.motobombas}
                     onChange={(e) => setRequestedEquipment((s) => ({ ...s, motobombas: e.target.checked }))}
-                    className="h-3.5 w-3.5 rounded text-secondary"
+                    className="h-3.5 w-3.5 rounded text-brand-blue"
                   />
                   <span>2 Motobombas de 6&quot; de alta presión</span>
                 </label>
@@ -1336,7 +1297,7 @@ export function RegistroTacticoTab() {
                     type="checkbox"
                     checked={requestedEquipment.boteZodiac}
                     onChange={(e) => setRequestedEquipment((s) => ({ ...s, boteZodiac: e.target.checked }))}
-                    className="h-3.5 w-3.5 rounded text-secondary"
+                    className="h-3.5 w-3.5 rounded text-brand-blue"
                   />
                   <span>1 Bote zodiac con motor fuera de borda</span>
                 </label>
@@ -1345,7 +1306,7 @@ export function RegistroTacticoTab() {
                     type="checkbox"
                     checked={requestedEquipment.sacosTerreros}
                     onChange={(e) => setRequestedEquipment((s) => ({ ...s, sacosTerreros: e.target.checked }))}
-                    className="h-3.5 w-3.5 rounded text-secondary"
+                    className="h-3.5 w-3.5 rounded text-brand-blue"
                   />
                   <span>200 Sacos terreros y geomalla</span>
                 </label>
@@ -1354,7 +1315,7 @@ export function RegistroTacticoTab() {
                     type="checkbox"
                     checked={requestedEquipment.racionesAgua}
                     onChange={(e) => setRequestedEquipment((s) => ({ ...s, racionesAgua: e.target.checked }))}
-                    className="h-3.5 w-3.5 rounded text-secondary"
+                    className="h-3.5 w-3.5 rounded text-brand-blue"
                   />
                   <span>Raciones frías y agua embotellada</span>
                 </label>
@@ -1363,9 +1324,9 @@ export function RegistroTacticoTab() {
           </section>
 
           {/* Action Execution Panel */}
-          <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-sm border border-surface-container-high/40 space-y-3">
-            <h3 className="text-sm font-black text-on-surface border-b border-surface-container-high/30 pb-2 flex items-center gap-2">
-              <Send className="h-4 w-4 text-orange-600" />
+          <section className="rounded-xl bg-white p-5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] space-y-3">
+            <h3 className="text-sm font-bold text-brand-ink border-b border-slate-100 pb-2 flex items-center gap-2">
+              <Send className="h-4 w-4 text-ladp-orange" />
               <span>Ejecución del Registro</span>
             </h3>
 
@@ -1374,7 +1335,7 @@ export function RegistroTacticoTab() {
               type="button"
               data-testid="submit-incident-btn"
               onClick={handleRegisterIncident}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white py-3 px-4 text-sm font-black uppercase tracking-wider shadow-md hover:shadow-lg transition-all"
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-ladp-orange hover:bg-ladp-orange/90 text-white py-3 px-4 text-sm font-bold uppercase tracking-wider shadow-xs transition-colors"
             >
               <Send className="h-4 w-4" />
               <span>Registrar Incidencia y Notificar</span>
@@ -1385,9 +1346,9 @@ export function RegistroTacticoTab() {
               type="button"
               data-testid="save-draft-btn"
               onClick={handleSaveDraft}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface py-2.5 px-4 text-xs font-bold transition-colors"
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-brand-mist hover:bg-brand-soft text-brand-ink py-2.5 px-4 text-xs font-bold transition-colors"
             >
-              <Save className="h-3.5 w-3.5 text-secondary" />
+              <Save className="h-3.5 w-3.5 text-brand-blue" />
               <span>Guardar Borrador en Cache Táctico</span>
             </button>
 
@@ -1396,13 +1357,13 @@ export function RegistroTacticoTab() {
               type="button"
               data-testid="sismate-alert-btn"
               onClick={handleEmitSismate}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-600/10 hover:bg-red-600/20 text-red-700 dark:text-red-400 py-2.5 px-4 text-xs font-bold border border-red-500/30 transition-colors"
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-brand-negative py-2.5 px-4 text-xs font-bold border border-rose-200 transition-colors"
             >
               <BellRing className="h-3.5 w-3.5" />
               <span>Emitir Alerta Celular SISMATE</span>
             </button>
 
-            <p className="text-[10px] text-on-surface-variant text-center font-medium leading-tight pt-1">
+            <p className="text-[10px] text-slate-500 text-center font-medium leading-tight pt-1">
               El envío asignará un código INC oficial inmutable certificado en el nodo de auditoría
               nacional INDECI / COEN.
             </p>

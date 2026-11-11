@@ -27,6 +27,7 @@ import {
 import { loginSchema, type LoginFormValues } from "@/domain/schemas/login.schema";
 import { getContainer } from "@/infrastructure/container";
 import { DEMO_PASSWORD } from "@/infrastructure/seed/demo-data";
+import { BrandMark } from "@/presentation/components/brand/BrandMark";
 import { homeForRole } from "@/presentation/lib/format";
 import { requestOpenSupportChat } from "@/presentation/support/support-bus";
 
@@ -59,40 +60,6 @@ const DEMO_ACCOUNTS: ReadonlyArray<{
     description: "Brigada de campo",
   },
 ];
-
-/* =========================================================================
-   LOGO OFICIAL DE LAS ASAMBLEAS DE DIOS DEL PERÚ
-   Sobre un disco blanco con aro degradado institucional (azul → naranja).
-========================================================================== */
-function BrandBadge({ className = "h-16 w-16" }: { className?: string }) {
-  return (
-    <div
-      className={`relative shrink-0 rounded-full shadow-[0_12px_26px_-12px_rgba(7,42,94,0.55)] ${className}`}
-    >
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 rounded-full"
-        style={{
-          background:
-            "conic-gradient(from 140deg, #072a5e, #1157b0, #2286e0, #f06a00, #e01b1b, #ff9a3c, #072a5e)",
-        }}
-      />
-      <div
-        aria-hidden="true"
-        className="absolute inset-[6%] rounded-full bg-white"
-      />
-      <div className="absolute inset-0 flex items-center justify-center">
-        <Image
-          src="/ad-logo.png"
-          alt="Logo de las Asambleas de Dios del Perú"
-          width={270}
-          height={525}
-          className="h-[76%] w-auto"
-        />
-      </div>
-    </div>
-  );
-}
 
 export function LoginView() {
   const router = useRouter();
@@ -174,7 +141,7 @@ export function LoginView() {
 
         {/* 1. Encabezado de Marca y Sistema */}
         <div className="relative z-20 flex items-center gap-4">
-          <BrandBadge className="h-16 w-16 xl:h-18 xl:w-18" />
+          <BrandMark className="h-16 w-16 xl:h-[4.5rem] xl:w-[4.5rem]" />
           <div>
             <div className="text-xl font-black tracking-tight text-white xl:text-2xl">
               AYUDA <span className="text-[#f06a00]">LADP</span>
@@ -277,7 +244,7 @@ export function LoginView() {
 
           {/* Escudo Oficial Vectorial y Título */}
           <div className="flex flex-col items-center text-center">
-            <BrandBadge className="h-24 w-24" />
+            <BrandMark className="h-24 w-24" />
             <h1 className="mt-4 text-[27px] font-black tracking-tight text-[#071b3e] sm:text-3xl">
               AYUDA <span className="text-[#f06a00]">LADP</span>
             </h1>

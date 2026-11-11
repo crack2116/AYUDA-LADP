@@ -96,7 +96,7 @@ export function SupportChatWidget() {
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         onClick={() => setOpen((current) => !current)}
-        className="fixed bottom-20 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#ff9a3c] to-[#e05f00] text-white shadow-[0_14px_30px_-10px_rgba(224,95,0,0.75)] ring-4 ring-white/60 transition-transform hover:scale-105 sm:h-14 sm:w-14"
+        className="fixed bottom-20 right-4 z-50 flex h-11 w-11 items-center justify-center rounded-full bg-ladp-orange text-white shadow-[0_10px_24px_-12px_rgba(240,106,0,0.9)] transition-colors hover:bg-ladp-orange-light sm:h-12 sm:w-12"
       >
         {open ? (
           <X className="h-6 w-6" aria-hidden={true} />
@@ -113,11 +113,11 @@ export function SupportChatWidget() {
           role="dialog"
           aria-labelledby={titleId}
           aria-modal="false"
-          className="fixed bottom-36 right-4 z-50 flex max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl bg-ladp-surface shadow-[0_30px_70px_-24px_rgba(3,11,56,0.45)]"
+          className="fixed bottom-36 right-4 z-50 flex max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl bg-ladp-surface shadow-[0_30px_70px_-24px_rgba(3,11,56,0.45)]"
         >
           <div className="flex items-start justify-between gap-3 bg-ladp-navy px-4 py-3">
             <div>
-              <h2 id={titleId} className="text-sm font-black text-white">
+              <h2 id={titleId} className="text-sm font-bold text-white">
                 Soporte AYUDA LADP
               </h2>
               <p className="text-xs text-white/70">Cuéntanos qué está fallando.</p>
@@ -221,7 +221,7 @@ export function SupportChatWidget() {
                   data-testid="chat-submit"
                   onClick={() => void handleSubmit()}
                   disabled={submitting}
-                  className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-ladp-orange px-4 text-sm font-black text-white hover:bg-ladp-orange-light disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-ladp-orange px-4 text-sm font-bold text-white hover:bg-ladp-orange-light disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Send className="h-4 w-4" aria-hidden={true} />
                   {submitting ? "Enviando…" : "Enviar reporte"}

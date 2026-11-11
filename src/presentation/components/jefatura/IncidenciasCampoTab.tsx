@@ -128,28 +128,28 @@ export function IncidenciasCampoTab() {
   return (
     <div className="flex flex-col gap-6">
       {/* 1. ENCABEZADO DE PÁGINA & CONTROL SUPERIOR */}
-      <section className="flex flex-col gap-3 rounded-2xl bg-surface-container-lowest p-6 shadow-sm border border-surface-container-high/40">
+      <section className="flex flex-col gap-3 rounded-xl bg-white p-6 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
           <div className="flex max-w-4xl flex-col gap-1.5 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-tertiary-fixed px-3 py-0.5 text-xs font-bold uppercase text-on-tertiary-container">
-                <span className="h-1.5 w-1.5 rounded-full bg-on-tertiary-container animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-0.5 text-xs font-bold uppercase text-ladp-orange">
+                <span className="h-1.5 w-1.5 rounded-full bg-ladp-orange animate-pulse" />
                 Supervisión FEN 2026
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary-fixed px-3 py-0.5 text-xs font-bold text-on-secondary-fixed">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-3 py-0.5 text-xs font-bold text-brand-blue">
                 <Satellite className="h-3.5 w-3.5" />
                 Red Nacional Geoespacial
               </span>
-              <span className="rounded-lg bg-surface-container-high px-2.5 py-0.5 font-mono text-xs font-semibold text-on-surface-variant">
+              <span className="rounded-lg bg-brand-mist px-2.5 py-0.5 font-mono text-xs font-semibold text-slate-600">
                 WGS84 / UTM ZONA 17S
               </span>
             </div>
 
-            <h2 className="text-xl font-black tracking-tight text-primary sm:text-2xl">
+            <h2 className="text-xl font-bold tracking-tight text-brand-ink sm:text-2xl">
               INCIDENCIAS DE CAMPO – MONITOREO GEOESPACIAL Y MAPA DE CALOR
             </h2>
 
-            <p className="text-xs font-medium text-on-surface-variant leading-relaxed">
+            <p className="text-xs font-medium text-slate-500 leading-relaxed">
               Visualización geoespacial en tiempo real de reportes de afectación, puntos críticos por desborde fluvial y concentración de calor hidrometeorológico por impacto del Fenómeno El Niño 2026.
             </p>
           </div>
@@ -159,21 +159,21 @@ export function IncidenciasCampoTab() {
             <button
               type="button"
               onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-surface-container-low px-3 py-2 text-xs font-bold text-secondary shadow-sm transition-colors hover:bg-surface-container"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-mist px-3 py-2 text-xs font-bold text-brand-blue transition-colors hover:bg-brand-soft"
             >
               <Navigation className="h-4 w-4" />
               <span>Exportar GeoJSON / KML</span>
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-surface-container-low px-3 py-2 text-xs font-bold text-on-surface shadow-sm transition-colors hover:bg-surface-container"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-mist px-3 py-2 text-xs font-bold text-brand-ink transition-colors hover:bg-brand-soft"
             >
               <Layers className="h-4 w-4" />
               <span>Filtro de Capas Tácticas</span>
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-primary-container px-3 py-2 text-xs font-bold text-on-primary shadow-sm transition-all hover:bg-secondary"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-deep px-3 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-brand-blue"
             >
               <ShieldAlert className="h-4 w-4" />
               <span>+ Despachar Brigada a Punto Crítico</span>
@@ -182,28 +182,26 @@ export function IncidenciasCampoTab() {
         </div>
 
         {/* Metadatos de Red y Sensores */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-surface-container-high/20 pt-3 text-xs text-on-surface-variant">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1.5 rounded-lg bg-surface-container-low px-2.5 py-1">
-              <Flame className="h-3.5 w-3.5 text-tertiary-container" />
-              <span className="font-bold text-on-surface">CAPA ACTIVA:</span>
+            <div className="flex items-center gap-1.5 rounded-lg bg-brand-mist px-2.5 py-1">
+              <Flame className="h-3.5 w-3.5 text-ladp-orange" />
+              <span className="font-bold text-brand-ink">CAPA ACTIVA:</span>
               <span>Mapa de Calor Hidrotérmico (KDE 1.2km)</span>
             </div>
-            <div className="flex items-center gap-1.5 rounded-lg bg-surface-container-low px-2.5 py-1">
-              <Radio className="h-3.5 w-3.5 text-secondary" />
-              <span className="font-bold text-on-surface">SENSORES COEN / INDECI:</span>
+            <div className="flex items-center gap-1.5 rounded-lg bg-brand-mist px-2.5 py-1">
+              <Radio className="h-3.5 w-3.5 text-brand-blue" />
+              <span className="font-bold text-brand-ink">SENSORES COEN / INDECI:</span>
               <span>412 Estaciones Telemetrizadas</span>
             </div>
-            <div className="flex items-center gap-1.5 rounded-lg bg-surface-container-low px-2.5 py-1">
-              <RefreshCw className="h-3.5 w-3.5 animate-spin text-secondary" />
-              <span className="font-bold text-on-surface">ACTUALIZACIÓN CONTINUA:</span>
-              <span className="font-bold text-on-tertiary-container">Hace 42 seg</span>
+            <div className="flex items-center gap-1.5 rounded-lg bg-brand-mist px-2.5 py-1">
+              <RefreshCw className="h-3.5 w-3.5 animate-spin text-brand-blue" />
+              <span className="font-bold text-brand-ink">ACTUALIZACIÓN CONTINUA:</span>
+              <span className="font-bold text-ladp-orange">Hace 42 seg</span>
             </div>
           </div>
-          <div className="flex items-center gap-2 font-mono text-[11px] text-on-surface-variant">
-            <span>REF: COEN-PE-N993-2026</span>
-            <span>•</span>
-            <span className="font-bold text-green-700">LATENCIA: 124ms</span>
+          <div className="flex items-center gap-2 font-mono text-[11px] text-slate-500">
+            <span className="font-bold text-brand-positive">LATENCIA: 124ms</span>
           </div>
         </div>
       </section>
@@ -211,89 +209,89 @@ export function IncidenciasCampoTab() {
       {/* 2. TELEMETRÍA RÁPIDA (KPIS COMPACTOS DE CAMPO) */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {/* KPI 1 */}
-        <div className="flex items-center justify-between rounded-2xl bg-surface-container-lowest p-4 shadow-sm border border-surface-container-high/40">
+        <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
           <div className="flex flex-col">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
               Incidencias Georreferenciadas
             </span>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-black tracking-tight text-primary sm:text-3xl">
+              <span className="text-2xl font-bold tracking-tight text-brand-ink sm:text-3xl">
                 1,428
               </span>
-              <span className="text-xs font-bold text-secondary">94% DGPS</span>
+              <span className="text-xs font-bold text-brand-blue">94% DGPS</span>
             </div>
-            <span className="mt-0.5 text-[11px] text-on-surface-variant font-medium">
+            <span className="mt-0.5 text-[11px] text-slate-500 font-medium">
               Validación submétrica satelital
             </span>
           </div>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary-fixed/50 text-secondary">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-blue">
             <MapPin className="h-6 w-6" />
           </div>
         </div>
 
         {/* KPI 2 */}
-        <div className="flex items-center justify-between rounded-2xl bg-surface-container-lowest p-4 shadow-sm border border-surface-container-high/40">
+        <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
           <div className="flex flex-col">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-error">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-brand-negative">
               Focos de Calor / Alto Riesgo
             </span>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-black tracking-tight text-error sm:text-3xl">
+              <span className="text-2xl font-bold tracking-tight text-brand-negative sm:text-3xl">
                 34
               </span>
-              <span className="rounded bg-error-container px-1.5 py-0.5 text-[10px] font-bold uppercase text-on-error-container">
+              <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-brand-negative">
                 Nivel Rojo
               </span>
             </div>
-            <span className="mt-0.5 text-[11px] text-on-surface-variant font-medium">
+            <span className="mt-0.5 text-[11px] text-slate-500 font-medium">
               +4 focos en últimas 2 horas
             </span>
           </div>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-error-container text-error">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-brand-negative">
             <AlertTriangle className="h-6 w-6" />
           </div>
         </div>
 
         {/* KPI 3 */}
-        <div className="flex items-center justify-between rounded-2xl bg-surface-container-lowest p-4 shadow-sm border border-surface-container-high/40">
+        <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
           <div className="flex flex-col">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
               Cuencas Hidrográficas
             </span>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-black tracking-tight text-primary sm:text-3xl">
+              <span className="text-2xl font-bold tracking-tight text-brand-ink sm:text-3xl">
                 12
               </span>
-              <span className="text-xs font-bold text-on-tertiary-container">
+              <span className="text-xs font-bold text-ladp-orange">
                 Desborde Inminente
               </span>
             </div>
-            <span className="mt-0.5 text-[11px] text-on-surface-variant font-medium">
+            <span className="mt-0.5 text-[11px] text-slate-500 font-medium">
               Ríos Piura, Tumbes, La Leche, Moche
             </span>
           </div>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-tertiary-fixed text-on-tertiary-container">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-ladp-orange">
             <Droplets className="h-6 w-6" />
           </div>
         </div>
 
         {/* KPI 4 */}
-        <div className="flex items-center justify-between rounded-2xl bg-surface-container-lowest p-4 shadow-sm border border-surface-container-high/40">
+        <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
           <div className="flex flex-col">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
               Brigadas en Foco Activo
             </span>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-black tracking-tight text-primary sm:text-3xl">
+              <span className="text-2xl font-bold tracking-tight text-brand-ink sm:text-3xl">
                 58
               </span>
-              <span className="text-xs font-bold text-secondary">416 Efectivos</span>
+              <span className="text-xs font-bold text-brand-blue">416 Efectivos</span>
             </div>
-            <span className="mt-0.5 text-[11px] text-on-surface-variant font-medium">
+            <span className="mt-0.5 text-[11px] text-slate-500 font-medium">
               Capacidad táctica al 82%
             </span>
           </div>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-primary">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-blue">
             <Users className="h-6 w-6" />
           </div>
         </div>
@@ -302,18 +300,18 @@ export function IncidenciasCampoTab() {
       {/* 3. CONSOLA CARTOGRÁFICA TÁCTICA & PANEL LATERAL INTEGRADO */}
       <section className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
         {/* Mapa Geoespacial Avanzado (8 Cols) */}
-        <div className="relative flex min-h-[660px] flex-col overflow-hidden rounded-2xl bg-surface-container-lowest shadow-sm border border-surface-container-high/40 lg:col-span-8">
+        <div className="relative flex min-h-[660px] flex-col overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] lg:col-span-8">
           {/* Barra Superior Flotante de Modos y Capas */}
           <div className="pointer-events-none absolute left-4 right-4 top-4 z-20 flex flex-wrap items-center justify-between gap-2">
             {/* Selector de Capas Rápido */}
-            <div className="pointer-events-auto flex items-center gap-1 rounded-xl bg-primary/90 p-1.5 text-xs text-on-primary shadow-md backdrop-blur">
+            <div className="pointer-events-auto flex items-center gap-1 rounded-lg bg-brand-deep/90 p-1.5 text-xs text-white shadow-md backdrop-blur">
               <button
                 type="button"
                 onClick={() => setActiveLayer("calor")}
                 className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition-all ${
                   activeLayer === "calor"
-                    ? "bg-secondary text-on-secondary shadow-xs"
-                    : "text-primary-fixed-dim hover:bg-white/10"
+                    ? "bg-brand-blue text-white shadow-xs"
+                    : "text-blue-100 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 <Flame className="h-3.5 w-3.5" />
@@ -324,8 +322,8 @@ export function IncidenciasCampoTab() {
                 onClick={() => setActiveLayer("puntos")}
                 className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition-all ${
                   activeLayer === "puntos"
-                    ? "bg-secondary text-on-secondary shadow-xs"
-                    : "text-primary-fixed-dim hover:bg-white/10"
+                    ? "bg-brand-blue text-white shadow-xs"
+                    : "text-blue-100 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 <MapPin className="h-3.5 w-3.5" />
@@ -336,8 +334,8 @@ export function IncidenciasCampoTab() {
                 onClick={() => setActiveLayer("rios")}
                 className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition-all ${
                   activeLayer === "rios"
-                    ? "bg-secondary text-on-secondary shadow-xs"
-                    : "text-primary-fixed-dim hover:bg-white/10"
+                    ? "bg-brand-blue text-white shadow-xs"
+                    : "text-blue-100 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 <Waves className="h-3.5 w-3.5" />
@@ -348,8 +346,8 @@ export function IncidenciasCampoTab() {
                 onClick={() => setActiveLayer("brigadas")}
                 className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition-all ${
                   activeLayer === "brigadas"
-                    ? "bg-secondary text-on-secondary shadow-xs"
-                    : "text-primary-fixed-dim hover:bg-white/10"
+                    ? "bg-brand-blue text-white shadow-xs"
+                    : "text-blue-100 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 <Shield className="h-3.5 w-3.5" />
@@ -360,8 +358,8 @@ export function IncidenciasCampoTab() {
                 onClick={() => setActiveLayer("radar")}
                 className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition-all ${
                   activeLayer === "radar"
-                    ? "bg-secondary text-on-secondary shadow-xs"
-                    : "text-primary-fixed-dim hover:bg-white/10"
+                    ? "bg-brand-blue text-white shadow-xs"
+                    : "text-blue-100 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 <Satellite className="h-3.5 w-3.5" />
@@ -370,9 +368,9 @@ export function IncidenciasCampoTab() {
             </div>
 
             {/* Telemetría de Vista GPS */}
-            <div className="pointer-events-auto flex items-center gap-3 rounded-xl bg-primary/85 px-3 py-1.5 font-mono text-xs text-primary-fixed shadow-md">
+            <div className="pointer-events-auto flex items-center gap-3 rounded-lg bg-brand-deep/90 px-3 py-1.5 font-mono text-xs text-blue-100 shadow-md">
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-secondary-fixed animate-ping" />
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
                 LIVE SAT-SYNC
               </span>
               <span className="text-white/30">|</span>
@@ -387,7 +385,7 @@ export function IncidenciasCampoTab() {
             <button
               type="button"
               onClick={() => setZoomLevel((z) => Math.min(16, z + 0.5))}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-container-lowest/95 text-on-surface shadow-md transition-colors hover:bg-surface"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-brand-ink shadow-md transition-colors hover:bg-white"
               title="Acercar Zoom"
             >
               <Plus className="h-4 w-4" />
@@ -395,23 +393,23 @@ export function IncidenciasCampoTab() {
             <button
               type="button"
               onClick={() => setZoomLevel((z) => Math.max(4, z - 0.5))}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-container-lowest/95 text-on-surface shadow-md transition-colors hover:bg-surface"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-brand-ink shadow-md transition-colors hover:bg-white"
               title="Alejar Zoom"
             >
               <Minus className="h-4 w-4" />
             </button>
-            <div className="my-0.5 h-px bg-surface-container-high/60" />
+            <div className="my-0.5 h-px bg-slate-200" />
             <button
               type="button"
               onClick={() => setZoomLevel(9.4)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-container-lowest/95 text-secondary shadow-md transition-colors hover:bg-surface"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-brand-blue shadow-md transition-colors hover:bg-white"
               title="Brújula Norte"
             >
               <Compass className="h-4 w-4" />
             </button>
             <button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-container-lowest/95 text-on-surface shadow-md transition-colors hover:bg-surface"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-brand-ink shadow-md transition-colors hover:bg-white"
               title="Medir Distancia Geodésica"
             >
               <Ruler className="h-4 w-4" />
@@ -419,14 +417,14 @@ export function IncidenciasCampoTab() {
             <button
               type="button"
               onClick={() => setBufferDistance((b) => (b === "5.0 km" ? "10.0 km" : "5.0 km"))}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-container-lowest/95 text-tertiary-container shadow-md transition-colors hover:bg-surface"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-ladp-orange shadow-md transition-colors hover:bg-white"
               title={`Radio de Afectación (${bufferDistance})`}
             >
               <Radio className="h-4 w-4" />
             </button>
             <button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-container-lowest/95 text-on-surface shadow-md transition-colors hover:bg-surface"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-brand-ink shadow-md transition-colors hover:bg-white"
               title="Pantalla Completa"
             >
               <Maximize2 className="h-4 w-4" />
@@ -434,7 +432,7 @@ export function IncidenciasCampoTab() {
           </div>
 
           {/* Lienzo Cartográfico Simulado con Coordenadas y Heatmap Interactivo */}
-          <div className="relative h-[660px] w-full cursor-grab select-none overflow-hidden bg-primary active:cursor-grabbing">
+          <div className="relative h-[660px] w-full cursor-grab select-none overflow-hidden bg-brand-deep active:cursor-grabbing">
             {/* Rejilla Militar UTM Táctica de Fondo */}
             <svg
               className="pointer-events-none absolute inset-0 h-full w-full opacity-20"
@@ -567,15 +565,15 @@ export function IncidenciasCampoTab() {
                 >
                   <div className="relative flex items-center justify-center">
                     {isSelected ? (
-                      <span className="absolute inline-flex h-12 w-12 animate-ping rounded-full bg-error opacity-75" />
+                      <span className="absolute inline-flex h-12 w-12 animate-ping rounded-full bg-brand-negative opacity-75" />
                     ) : null}
                     <span
                       className={`relative flex h-8 w-8 items-center justify-center rounded-full shadow-xl ring-2 ring-white ${
                         hotspot.riskLevel === "critical"
-                          ? "bg-error text-white"
+                          ? "bg-brand-negative text-white"
                           : hotspot.riskLevel === "severe"
-                            ? "bg-on-tertiary-container text-white"
-                            : "bg-secondary text-white"
+                            ? "bg-ladp-orange text-white"
+                            : "bg-brand-blue text-white"
                       }`}
                     >
                       <MapPin className="h-4 w-4" />
@@ -584,21 +582,21 @@ export function IncidenciasCampoTab() {
 
                   {/* Etiqueta Flotante Táctica */}
                   <div
-                    className={`absolute -top-2 left-9 whitespace-nowrap rounded-lg bg-primary-container px-2.5 py-1.5 text-xs text-on-primary shadow-lg border-l-4 ${
+                    className={`absolute -top-2 left-9 whitespace-nowrap rounded-lg bg-brand-deep px-2.5 py-1.5 text-xs text-white shadow-lg border-l-4 ${
                       hotspot.riskLevel === "critical"
-                        ? "border-error"
+                        ? "border-brand-negative"
                         : hotspot.riskLevel === "severe"
-                          ? "border-amber-500"
-                          : "border-secondary"
+                          ? "border-ladp-orange"
+                          : "border-brand-blue"
                     } ${isSelected ? "flex" : "hidden group-hover:flex"} flex-col`}
                   >
                     <div className="flex items-center gap-1.5">
                       <span className="font-mono font-bold text-white">{hotspot.code}</span>
-                      <span className="rounded bg-error px-1 py-0.2 text-[9px] font-black uppercase text-white">
+                      <span className="rounded bg-brand-negative px-1 py-0.2 text-[9px] font-bold uppercase text-white">
                         {hotspot.riskLevel === "critical" ? "CRÍTICO" : "SEVERO"}
                       </span>
                     </div>
-                    <span className="font-mono text-[11px] text-primary-fixed-dim">
+                    <span className="font-mono text-[11px] text-blue-200">
                       {hotspot.basin}
                     </span>
                   </div>
@@ -607,63 +605,63 @@ export function IncidenciasCampoTab() {
             })}
 
             {/* Topónimos Geográficos */}
-            <span className="pointer-events-none absolute left-[38%] top-[16%] text-[11px] font-bold tracking-wider text-primary-fixed-dim/60">
+            <span className="pointer-events-none absolute left-[38%] top-[16%] text-[11px] font-bold tracking-wider text-blue-200/70">
               TUMBES
             </span>
-            <span className="pointer-events-none absolute left-[33%] top-[34%] text-xs font-black tracking-widest text-primary-fixed-dim/80">
+            <span className="pointer-events-none absolute left-[33%] top-[34%] text-xs font-bold tracking-widest text-blue-100/90">
               PIURA (SECTOR 01)
             </span>
-            <span className="pointer-events-none absolute left-[44%] top-[49%] text-[11px] font-bold tracking-wider text-primary-fixed-dim/60">
+            <span className="pointer-events-none absolute left-[44%] top-[49%] text-[11px] font-bold tracking-wider text-blue-200/70">
               LAMBAYEQUE
             </span>
-            <span className="pointer-events-none absolute left-[53%] top-[69%] text-[11px] font-bold tracking-wider text-primary-fixed-dim/60">
+            <span className="pointer-events-none absolute left-[53%] top-[69%] text-[11px] font-bold tracking-wider text-blue-200/70">
               LA LIBERTAD
             </span>
-            <span className="pointer-events-none absolute left-[10%] top-[40%] font-mono text-xs uppercase tracking-widest text-primary-fixed-dim/40">
+            <span className="pointer-events-none absolute left-[10%] top-[40%] font-mono text-xs uppercase tracking-widest text-blue-200/50">
               OCÉANO PACÍFICO SUR
             </span>
 
             {/* Leyenda Térmica Flotante */}
-            <div className="absolute bottom-4 left-4 z-20 max-w-xs rounded-xl bg-primary/95 p-3 text-xs text-on-primary shadow-lg backdrop-blur">
+            <div className="absolute bottom-4 left-4 z-20 min-w-[275px] max-w-sm rounded-xl bg-brand-deep/95 p-3 text-xs text-white shadow-lg backdrop-blur">
               <div className="flex items-center justify-between pb-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-primary-fixed-dim">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
                   Severidad Térmica / FEN
                 </span>
-                <span className="font-mono text-[10px] font-bold text-tertiary-fixed">
+                <span className="font-mono text-[10px] font-bold text-amber-300">
                   KDE 85% CONF
                 </span>
               </div>
-              <div className="h-2 w-full rounded-full bg-gradient-to-r from-secondary-fixed via-on-tertiary-container to-error shadow-inner" />
-              <div className="mt-1 flex items-center justify-between font-mono text-[9px] text-primary-fixed-dim">
+              <div className="h-2 w-full rounded-full bg-gradient-to-r from-brand-soft via-ladp-orange to-brand-negative shadow-inner" />
+              <div className="mt-1.5 flex items-center justify-between gap-2.5 font-mono text-[9px] text-blue-200">
                 <span>Normal (&lt;20%)</span>
                 <span>Mod (20-50%)</span>
                 <span>Sev (50-80%)</span>
-                <span className="font-bold text-error">Crítico (&gt;80%)</span>
+                <span className="font-bold text-rose-300">Crítico (&gt;80%)</span>
               </div>
-              <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2 text-[10px] text-primary-fixed-dim">
+              <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2 text-[10px] text-blue-200">
                 <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-error" /> Alerta Roja Fluvial
+                  <span className="h-2 w-2 rounded-full bg-brand-negative" /> Alerta Roja Fluvial
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-secondary" /> Sensores Activos
+                  <span className="h-2 w-2 rounded-full bg-brand-blue" /> Sensores Activos
                 </span>
               </div>
             </div>
 
             {/* Indicador de Escala Gráfica */}
-            <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 rounded-xl bg-primary/90 px-2.5 py-1.5 font-mono text-[10px] text-primary-fixed-dim shadow">
+            <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 rounded-lg bg-brand-deep/90 px-2.5 py-1.5 font-mono text-[10px] text-blue-200 shadow">
               <span>50 km</span>
-              <div className="flex h-1 w-16 bg-primary-fixed-dim">
-                <div className="h-full w-8 bg-primary" />
+              <div className="flex h-1 w-16 bg-blue-200">
+                <div className="h-full w-8 bg-brand-deep" />
               </div>
               <span>EPSG: 4326</span>
             </div>
           </div>
 
           {/* Barra de Estado Inferior del Visor */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-surface-container bg-surface-container-low p-3 text-xs text-on-surface-variant font-medium">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-brand-mist p-3 text-xs text-slate-600 font-medium">
             <div className="flex items-center gap-2">
-              <SlidersHorizontal className="h-3.5 w-3.5 text-secondary" />
+              <SlidersHorizontal className="h-3.5 w-3.5 text-brand-blue" />
               <span>Filtro activo: Solo cuencas con caudal &gt; P90 y pendientes &gt; 15°</span>
             </div>
             <div className="flex items-center gap-3 font-mono text-[11px]">
@@ -675,22 +673,22 @@ export function IncidenciasCampoTab() {
         </div>
 
         {/* 4. Panel Lateral Táctico de Inspección (4 Cols) */}
-        <div className="flex flex-col overflow-hidden rounded-2xl bg-surface-container-lowest shadow-sm border border-surface-container-high/40 lg:col-span-4">
+        <div className="flex flex-col overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] lg:col-span-4">
           {/* Cabecera de Ficha Táctica */}
-          <div className="flex items-start justify-between bg-primary p-4 text-on-primary">
+          <div className="flex items-start justify-between bg-brand-deep p-4 text-white">
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="rounded bg-error px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
+                <span className="rounded bg-brand-negative px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                   ALERTA ROJA
                 </span>
-                <span className="font-mono text-xs text-primary-fixed-dim">
+                <span className="font-mono text-xs text-blue-200">
                   #{selectedHotspot.code}
                 </span>
               </div>
-              <h3 className="mt-1 text-base font-black text-on-primary">
+              <h3 className="mt-1 text-base font-bold text-white">
                 {selectedHotspot.basin}
               </h3>
-              <span className="text-xs text-primary-fixed-dim">
+              <span className="text-xs text-blue-200">
                 {selectedHotspot.district}
               </span>
             </div>
@@ -699,79 +697,79 @@ export function IncidenciasCampoTab() {
           {/* Métricas Críticas Clave del Punto Seleccionado */}
           <div className="flex flex-col gap-4 p-4 text-xs">
             {/* Estado de Riesgo Inminente */}
-            <div className="flex items-center gap-3 rounded-xl bg-error-container/60 p-3 text-on-error-container">
-              <Droplets className="h-6 w-6 shrink-0 text-error" />
+            <div className="flex items-center gap-3 rounded-xl bg-rose-50 p-3 text-brand-negative">
+              <Droplets className="h-6 w-6 shrink-0 text-brand-negative" />
               <div className="flex flex-col">
-                <span className="font-black uppercase text-[11px]">DESBORDE INMINENTE (NIVEL 4)</span>
+                <span className="font-bold uppercase text-[11px]">DESBORDE INMINENTE (NIVEL 4)</span>
                 <span className="text-[11px]">Cota de desborde superada en +42 cm en margen izquierda.</span>
               </div>
             </div>
 
             {/* Grilla de Datos Técnicos y Parámetros Hidrológicos */}
             <div className="grid grid-cols-2 gap-2">
-              <div className="flex flex-col rounded-xl bg-surface-container-low p-2.5">
-                <span className="text-[10px] font-bold text-on-surface-variant uppercase">Caudal Registrado</span>
-                <span className="mt-0.5 font-mono text-base font-black text-primary">
+              <div className="flex flex-col rounded-xl bg-brand-mist p-2.5">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Caudal Registrado</span>
+                <span className="mt-0.5 font-mono text-base font-bold text-brand-ink">
                   {selectedHotspot.flowMetric}
                 </span>
-                <span className="font-mono text-[10px] font-bold text-error">
+                <span className="font-mono text-[10px] font-bold text-brand-negative">
                   {selectedHotspot.flowTrend}
                 </span>
               </div>
 
-              <div className="flex flex-col rounded-xl bg-surface-container-low p-2.5">
-                <span className="text-[10px] font-bold text-on-surface-variant uppercase">Población Expuesta</span>
-                <span className="mt-0.5 font-mono text-base font-black text-primary">
+              <div className="flex flex-col rounded-xl bg-brand-mist p-2.5">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Población Expuesta</span>
+                <span className="mt-0.5 font-mono text-base font-bold text-brand-ink">
                   110 Fam.
                 </span>
-                <span className="text-[10px] text-on-surface-variant">~480 personas</span>
+                <span className="text-[10px] text-slate-500">~480 personas</span>
               </div>
 
-              <div className="flex flex-col rounded-xl bg-surface-container-low p-2.5">
-                <span className="text-[10px] font-bold text-on-surface-variant uppercase">Coordenadas DGPS</span>
-                <span className="mt-0.5 font-mono text-[11px] font-bold text-on-surface">
+              <div className="flex flex-col rounded-xl bg-brand-mist p-2.5">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Coordenadas DGPS</span>
+                <span className="mt-0.5 font-mono text-[11px] font-bold text-brand-ink">
                   {selectedHotspot.coords}
                 </span>
-                <span className="text-[10px] text-on-surface-variant">Elev: 29 msnm</span>
+                <span className="text-[10px] text-slate-500">Elev: 29 msnm</span>
               </div>
 
-              <div className="flex flex-col rounded-xl bg-surface-container-low p-2.5">
-                <span className="text-[10px] font-bold text-on-surface-variant uppercase">Velocidad Aumento</span>
-                <span className="mt-0.5 font-mono text-base font-black text-on-tertiary-container">
+              <div className="flex flex-col rounded-xl bg-brand-mist p-2.5">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Velocidad Aumento</span>
+                <span className="mt-0.5 font-mono text-base font-bold text-ladp-orange">
                   +48 m³/s/h
                 </span>
-                <span className="text-[10px] text-on-tertiary-container font-semibold">Tendencia Ascendente</span>
+                <span className="text-[10px] text-ladp-orange font-semibold">Tendencia Ascendente</span>
               </div>
             </div>
 
             {/* Unidad Táctica Asignada */}
-            <div className="flex items-center justify-between rounded-xl bg-surface-container-low p-3">
+            <div className="flex items-center justify-between rounded-xl bg-brand-mist p-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary font-mono text-xs font-bold text-on-secondary">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-blue font-mono text-xs font-bold text-white">
                   B-3
                 </div>
                 <div className="flex flex-col">
-                  <span className="font-bold text-on-surface">{selectedHotspot.assignedBrigade}</span>
-                  <span className="text-[11px] text-on-surface-variant">Cmdte. PNP M. Vásquez (14 efectivos)</span>
+                  <span className="font-bold text-brand-ink">{selectedHotspot.assignedBrigade}</span>
+                  <span className="text-[11px] text-slate-500">Cmdte. PNP M. Vásquez (14 efectivos)</span>
                 </div>
               </div>
-              <span className="h-2.5 w-2.5 rounded-full bg-green-600 animate-pulse" />
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-600 animate-pulse" />
             </div>
 
             {/* Miniatura de Reconocimiento Dron */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-[11px] font-bold">
-                <span className="uppercase text-on-surface">Reconocimiento Aéreo Térmico</span>
-                <span className="font-mono text-secondary">Dron FEN-Alpha 02</span>
+                <span className="uppercase text-brand-ink">Reconocimiento Aéreo Térmico</span>
+                <span className="font-mono text-brand-blue">Dron FEN-Alpha 02</span>
               </div>
-              <div className="relative h-28 w-full overflow-hidden rounded-xl bg-primary shadow-inner">
-                <div className="flex h-full w-full items-center justify-center font-mono text-xs text-primary-fixed-dim">
+              <div className="relative h-28 w-full overflow-hidden rounded-xl bg-brand-deep shadow-inner">
+                <div className="flex h-full w-full items-center justify-center font-mono text-xs text-blue-200">
                   [STREAM TÉRMICO FLIR ACTIVO]
                 </div>
-                <div className="absolute bottom-2 left-2 rounded bg-primary/80 px-2 py-0.5 font-mono text-[10px] text-on-primary">
+                <div className="absolute bottom-2 left-2 rounded bg-brand-deep/85 px-2 py-0.5 font-mono text-[10px] text-white">
                   ALT: 180m • FOV 84° • FLIR INFRARED
                 </div>
-                <div className="absolute right-2 top-2 rounded bg-error px-1.5 py-0.5 text-[9px] font-black uppercase text-on-error">
+                <div className="absolute right-2 top-2 rounded bg-brand-negative px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
                   BRECHA DETECTADA
                 </div>
               </div>
@@ -781,7 +779,7 @@ export function IncidenciasCampoTab() {
             <div className="flex flex-col gap-2 pt-1">
               <button
                 type="button"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-on-tertiary-container py-2.5 text-xs font-bold text-white shadow transition-all hover:opacity-95"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-ladp-orange py-2.5 text-xs font-bold text-white shadow-xs transition-colors hover:bg-ladp-orange/90"
               >
                 <PhoneCall className="h-4 w-4" />
                 <span>Emitir Alerta Temprana SMS (SISMATE / CAT)</span>
@@ -789,14 +787,14 @@ export function IncidenciasCampoTab() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-surface-container-low py-2 text-xs font-bold text-secondary transition-colors hover:bg-surface-container"
+                  className="flex items-center justify-center gap-1.5 rounded-lg bg-brand-mist py-2 text-xs font-bold text-brand-blue transition-colors hover:bg-brand-soft"
                 >
                   <Truck className="h-3.5 w-3.5" />
                   <span>Asignar Recursos Extra</span>
                 </button>
                 <button
                   type="button"
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-surface-container-low py-2 text-xs font-bold text-on-surface transition-colors hover:bg-surface-container"
+                  className="flex items-center justify-center gap-1.5 rounded-lg bg-brand-mist py-2 text-xs font-bold text-brand-ink transition-colors hover:bg-brand-soft"
                 >
                   <Video className="h-3.5 w-3.5" />
                   <span>Telemetría Dron</span>
@@ -808,14 +806,14 @@ export function IncidenciasCampoTab() {
       </section>
 
       {/* 5. SUB-TABLA RÁPIDA DE PUNTOS CALIENTES (HOTSPOTS PRIORITARIOS) */}
-      <section className="flex flex-col gap-4 rounded-2xl bg-surface-container-lowest p-5 shadow-sm border border-surface-container-high/40">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-surface-container-high/20 pb-3">
+      <section className="flex flex-col gap-4 rounded-xl bg-white p-5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
-            <Flame className="h-5 w-5 text-on-tertiary-container" />
-            <h3 className="text-sm font-black text-primary sm:text-base">
+            <Flame className="h-5 w-5 text-ladp-orange" />
+            <h3 className="text-sm font-bold text-brand-ink sm:text-base">
               MATRIZ OPERATIVA DE PUNTOS CALIENTES PRIORITARIOS (HOTSPOTS FEN 2026)
             </h3>
-            <span className="rounded-lg bg-surface-container-high px-2 py-0.5 text-[11px] font-bold text-on-surface">
+            <span className="rounded-lg bg-brand-mist px-2 py-0.5 text-[11px] font-bold text-brand-ink">
               {filteredHotspots.length} Focos Activos
             </span>
           </div>
@@ -823,19 +821,19 @@ export function IncidenciasCampoTab() {
           {/* Filtro y Búsqueda Geoespacial */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-on-surface-variant" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               <input
                 type="text"
                 value={filterSearch}
                 onChange={(e) => setFilterSearch(e.target.value)}
                 placeholder="Filtrar por cuenca o distrito..."
-                className="h-9 w-56 rounded-xl bg-surface-container-low pl-8 pr-3 text-xs font-semibold text-on-surface focus:outline-none focus:ring-1 focus:ring-secondary"
+                className="h-9 w-56 rounded-lg bg-brand-mist pl-8 pr-3 text-xs font-semibold text-brand-ink placeholder:text-slate-400 transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
               />
             </div>
             <select
               value={selectedRiskFilter}
               onChange={(e) => setSelectedRiskFilter(e.target.value)}
-              className="h-9 rounded-xl bg-surface-container-low px-2.5 text-xs font-semibold text-on-surface focus:outline-none focus:ring-1 focus:ring-secondary"
+              className="h-9 rounded-lg bg-brand-mist px-2.5 text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
             >
               <option value="all">Todos los Niveles</option>
               <option value="critical">Solo Nivel Rojo (Crítico)</option>
@@ -848,7 +846,7 @@ export function IncidenciasCampoTab() {
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr className="bg-surface-container-low text-on-surface-variant font-bold uppercase tracking-wider text-[11px]">
+              <tr className="bg-brand-mist text-slate-500 font-bold uppercase tracking-wider text-[11px]">
                 <th scope="col" className="px-3 py-2.5">Código / ID</th>
                 <th scope="col" className="px-3 py-2.5">Cuenca / Localización</th>
                 <th scope="col" className="px-3 py-2.5">Tipo Fenómeno</th>
@@ -860,7 +858,7 @@ export function IncidenciasCampoTab() {
                 <th scope="col" className="px-3 py-2.5 text-right">Acción</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-surface-container-high/40 text-on-surface font-medium">
+            <tbody className="divide-y divide-slate-100 text-brand-ink font-medium">
               {filteredHotspots.map((hotspot) => {
                 const isSelected = selectedHotspot.id === hotspot.id;
                 return (
@@ -868,35 +866,35 @@ export function IncidenciasCampoTab() {
                     key={hotspot.id}
                     className={`transition-colors ${
                       isSelected
-                        ? "bg-surface-container-low/80 font-semibold"
-                        : "hover:bg-surface-container-low/40"
+                        ? "bg-brand-soft/60 font-semibold"
+                        : "hover:bg-brand-mist/60"
                     }`}
                   >
-                    <td className="px-3 py-2.5 font-mono font-bold text-secondary">
+                    <td className="px-3 py-2.5 font-mono font-bold text-brand-blue">
                       {hotspot.code}
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex flex-col">
-                        <span className="font-bold text-on-surface">{hotspot.basin}</span>
-                        <span className="font-mono text-[10px] text-on-surface-variant">
+                        <span className="font-bold text-brand-ink">{hotspot.basin}</span>
+                        <span className="font-mono text-[10px] text-slate-500">
                           {hotspot.district} ({hotspot.coords})
                         </span>
                       </div>
                     </td>
                     <td className="px-3 py-2.5">
                       <span className="inline-flex items-center gap-1">
-                        <Droplets className="h-3.5 w-3.5 text-secondary" />
+                        <Droplets className="h-3.5 w-3.5 text-brand-blue" />
                         {hotspot.phenomenon}
                       </span>
                     </td>
                     <td className="px-3 py-2.5">
                       <span
-                        className={`rounded px-2 py-0.5 text-[10px] font-black uppercase ${
+                        className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
                           hotspot.riskLevel === "critical"
-                            ? "bg-error-container text-on-error-container"
+                            ? "bg-rose-50 text-brand-negative"
                             : hotspot.riskLevel === "severe"
-                              ? "bg-tertiary-fixed text-on-tertiary-container"
-                              : "bg-secondary-fixed text-on-secondary-fixed"
+                              ? "bg-amber-50 text-ladp-orange"
+                              : "bg-brand-soft text-brand-blue"
                         }`}
                       >
                         {hotspot.riskLevel === "critical"
@@ -907,14 +905,14 @@ export function IncidenciasCampoTab() {
                       </span>
                     </td>
                     <td className="px-3 py-2.5 font-mono">
-                      <span className="font-bold text-on-surface">{hotspot.flowMetric}</span>
-                      <span className="block text-[10px] text-on-surface-variant">{hotspot.flowTrend}</span>
+                      <span className="font-bold text-brand-ink">{hotspot.flowMetric}</span>
+                      <span className="block text-[10px] text-slate-500">{hotspot.flowTrend}</span>
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1.5 font-mono">
-                        <div className="h-2 w-14 overflow-hidden rounded-full bg-surface-container-high">
+                        <div className="h-2 w-14 overflow-hidden rounded-full bg-slate-100">
                           <div
-                            className="h-full bg-secondary"
+                            className="h-full bg-brand-blue"
                             style={{ width: `${hotspot.evacuationPct}%` }}
                           />
                         </div>
@@ -922,15 +920,15 @@ export function IncidenciasCampoTab() {
                       </div>
                     </td>
                     <td className="px-3 py-2.5">{hotspot.assignedBrigade}</td>
-                    <td className="px-3 py-2.5 font-mono text-on-surface-variant">{hotspot.lastReport}</td>
+                    <td className="px-3 py-2.5 font-mono text-slate-500">{hotspot.lastReport}</td>
                     <td className="px-3 py-2.5 text-right">
                       <button
                         type="button"
                         onClick={() => setSelectedHotspot(hotspot)}
                         className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
                           isSelected
-                            ? "bg-secondary text-on-secondary shadow-xs"
-                            : "bg-surface-container-low text-secondary hover:bg-surface-container"
+                            ? "bg-brand-blue text-white shadow-xs"
+                            : "bg-brand-mist text-brand-blue hover:bg-brand-soft"
                         }`}
                       >
                         {isSelected ? "En Foco" : "Localizar"}

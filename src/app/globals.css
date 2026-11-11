@@ -1,6 +1,16 @@
 @import "tailwindcss";
 
 @theme {
+  /* Operational palette: one neutral scale (Tailwind slate), one accent,
+     three semantics. Everything else is a mix of these tokens. */
+  --color-brand-ink: #0b1b33;
+  --color-brand-deep: #071b3e;
+  --color-brand-blue: #0e4ec3;
+  --color-brand-soft: #eaf1fd;
+  --color-brand-mist: #f2f6fc;
+  --color-brand-positive: #0f9d63;
+  --color-brand-negative: #be123c;
+
   --color-ladp-navy-dark: #030b38;
   --color-ladp-navy: #071b3e;
   --color-ladp-cobalt: #002296;
