@@ -14,6 +14,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Calendar,
+  Clock,
   FilePlus2,
   Flame,
   LayoutDashboard,
@@ -181,19 +182,19 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
   };
 
   const brand = (
-    <Link href={homeForRole(user.rol)} className="flex items-center gap-3">
-      <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1d5db6] to-[#0d3b80] shadow-md shadow-blue-950/50 ring-1 ring-white/20">
-        <ShieldCheck className="h-6 w-6 text-white" aria-hidden={true} />
+    <Link href={homeForRole(user.rol)} className="flex items-center gap-2.5">
+      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#195cc7] to-[#0b357c] shadow-[0_6px_16px_rgba(0,0,0,0.32)] ring-1 ring-white/25">
+        <ShieldCheck className="h-5 w-5 text-white" aria-hidden={true} />
         <Flame
-          className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-[#041235] p-0.5 text-ladp-orange"
+          className="absolute -bottom-1 -right-1 h-4.5 w-4.5 rounded-full bg-[#041235] p-0.5 text-ladp-orange"
           aria-hidden={true}
         />
       </span>
       <span className="min-w-0">
-        <span className="block text-base font-black leading-tight tracking-tight text-white">
+        <span className="block text-[15px] font-black leading-tight tracking-tight text-white">
           AYUDA LADP
         </span>
-        <span className="block truncate text-[11px] font-medium uppercase tracking-wide text-white/70">
+        <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-200/75">
           Respuesta humanitaria
         </span>
       </span>
@@ -201,7 +202,7 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
   );
 
   return (
-    <div className="min-h-screen bg-ladp-bg md:flex">
+    <div className="min-h-screen bg-[#eef3fb] md:flex">
       <a
         href="#contenido-principal"
         className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-ladp-surface focus:px-4 focus:py-3 focus:text-sm focus:font-bold focus:text-ladp-navy"
@@ -209,20 +210,29 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
         Saltar al contenido principal
       </a>
 
-      <aside className="relative hidden w-72 shrink-0 flex-col bg-gradient-to-b from-[#030d29] via-[#041235] to-[#020718] border-r border-white/5 md:sticky md:top-0 md:flex md:h-screen shadow-2xl">
-        {/* Subtle decorative curved ambient light */}
-        <div
+      <aside className="relative hidden w-[232px] lg:w-[238px] shrink-0 flex-col overflow-hidden bg-gradient-to-b from-[#061842] via-[#041130] to-[#02091c] border-r border-white/10 md:sticky md:top-0 md:flex md:h-screen shadow-xl">
+        {/* Decorative diagonal ambient glass wave matching reference sidebar */}
+        <svg
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-20"
-          style={{
-            backgroundImage: "radial-gradient(ellipse at top left, #1d5db6 0%, transparent 70%)",
-          }}
-        />
+          viewBox="0 0 240 800"
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute inset-0 h-full w-full opacity-35"
+        >
+          <defs>
+            <linearGradient id="sidebar-wave" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#1e64db" stopOpacity="0.45" />
+              <stop offset="65%" stopColor="#0e3b94" stopOpacity="0.12" />
+              <stop offset="100%" stopColor="#02091c" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d="M0 0 L240 0 L240 280 C165 360 95 450 0 560 Z" fill="url(#sidebar-wave)" />
+          <path d="M0 440 C95 365 170 315 240 240 L240 800 L0 800 Z" fill="#010717" opacity="0.5" />
+        </svg>
 
-        <div className="relative z-10 px-5 py-6 border-b border-white/10">{brand}</div>
+        <div className="relative z-10 px-4 py-4 border-b border-white/10">{brand}</div>
 
-        <nav aria-label="Navegación principal" className="relative z-10 flex-1 px-3 py-4">
-          <ul className="space-y-1.5">
+        <nav aria-label="Navegación principal" className="relative z-10 flex-1 overflow-y-auto px-3 py-3.5">
+          <ul className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);
@@ -231,14 +241,14 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
                   <Link
                     href={item.href}
                     aria-current={active ? "page" : undefined}
-                    className={`flex min-h-11 items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
+                    className={`flex min-h-10 items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-semibold transition-all ${
                       active
-                        ? "bg-gradient-to-r from-[#1752a7] to-[#0f3d82] text-white shadow-lg shadow-blue-950/60 border border-blue-400/30 ring-1 ring-white/10"
-                        : "text-white/75 hover:bg-white/10 hover:text-white"
+                        ? "bg-gradient-to-r from-[#0e52c8] to-[#093a94] text-white shadow-[0_6px_18px_-4px_rgba(14,82,200,0.65)] ring-1 ring-white/20"
+                        : "text-blue-100/80 hover:bg-white/[0.08] hover:text-white"
                     }`}
                   >
-                    <Icon className="h-5 w-5 shrink-0" aria-hidden={true} />
-                    <span>{item.label}</span>
+                    <Icon className="h-4.5 w-4.5 shrink-0" aria-hidden={true} />
+                    <span className="truncate">{item.label}</span>
                   </Link>
                 </li>
               );
@@ -247,58 +257,47 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
         </nav>
 
         {user.rol === "jefatura" ? (
-          <div className="relative z-10 border-t border-white/10 p-3 bg-black/20">
-            <div className="rounded-xl bg-white/5 border border-white/10 p-3 flex flex-col gap-2.5 backdrop-blur-md">
-              <div className="flex items-center justify-between text-[10px] font-bold text-white/70">
-                <span className="uppercase tracking-wider">Últ. Act. Estadísticas</span>
-                <span className="rounded bg-sky-500/20 text-sky-300 font-mono px-1.5 py-0.5 border border-sky-400/30">
+          <div className="relative z-10 px-3 pb-2.5">
+            <div className="rounded-xl border border-white/12 bg-white/[0.045] p-3 flex flex-col gap-2 backdrop-blur-sm">
+              <div className="flex items-center justify-between gap-1 text-[9px] font-bold text-blue-200/85">
+                <span className="uppercase tracking-[0.02em] whitespace-nowrap">Últ. Act. Estadísticas</span>
+                <span className="shrink-0 rounded-md bg-[#0e4ec3] px-1.5 py-0.5 font-mono text-[9px] font-bold text-white whitespace-nowrap">
                   Hora: 14:30
                 </span>
               </div>
-              <div className="flex items-center justify-between font-mono text-[11px] text-white font-bold">
-                <span className="inline-flex items-center gap-1.5 text-white/80 font-sans font-medium">
-                  <Calendar className="h-3.5 w-3.5 text-sky-400" /> 12/02/2026
+              <div className="flex items-center justify-between text-[11px] font-semibold text-white">
+                <span className="inline-flex items-center gap-1.5 text-white/90">
+                  <Calendar className="h-3.5 w-3.5 text-sky-300" aria-hidden={true} />
+                  <span>12/02/2026</span>
                 </span>
-                <span className="inline-flex items-center gap-1 text-white/80 font-sans font-medium">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Sesión: 01:20:45
+                <span className="inline-flex items-center gap-1 font-mono text-[10.5px] text-blue-100/90">
+                  <Clock className="h-3 w-3 text-sky-300" aria-hidden={true} />
+                  <span>01:20:45</span>
                 </span>
               </div>
-
-              {/* SAT-LINK Telemetry Gauge */}
-              <div className="pt-1.5 border-t border-white/10 flex flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                    </span>
-                    <span className="text-[10px] font-black text-white uppercase tracking-wider">
-                      SAT-LINK ENLACE
-                    </span>
-                  </div>
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-white/10 text-sky-200 uppercase">
+              <div className="flex items-center justify-between border-t border-white/10 pt-1.5 text-[9.5px] font-semibold text-blue-100/75">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  </span>
+                  <span className="uppercase tracking-wider text-white/90">SAT-LINK</span>
+                  <span className="rounded bg-white/10 px-1 py-px font-mono text-[8.5px] text-sky-200">
                     ENCR 256B
                   </span>
-                </div>
-                <div className="w-full bg-white/15 h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-sky-400 h-full rounded-full transition-all" style={{ width: "99.4%" }} />
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-white/60 font-medium">
-                  <span className="inline-flex items-center gap-1">
-                    <Lock className="h-3 w-3 text-sky-400" />
-                    <span>Conexión Segura Jefatura</span>
-                  </span>
-                  <span className="font-mono font-bold text-white">99.4%</span>
-                </div>
+                </span>
+                <span className="inline-flex items-center gap-1 font-mono font-bold text-emerald-300">
+                  <Lock className="h-2.5 w-2.5" aria-hidden={true} />
+                  99.4%
+                </span>
               </div>
             </div>
           </div>
         ) : null}
 
-        <div className="relative z-10 space-y-2 border-t border-white/10 px-4 py-3.5 bg-black/30">
+        <div className="relative z-10 space-y-1.5 border-t border-white/10 px-3.5 pt-2.5 pb-4 bg-black/25">
           <label
-            className="block text-[11px] font-bold text-white/70 uppercase tracking-wider"
+            className="block text-[10.5px] font-semibold text-blue-200/80"
             htmlFor="role-switcher"
           >
             Cambiar de rol
@@ -308,56 +307,56 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
             value={user.rol}
             disabled={switching}
             onChange={(event) => void handleRoleChange(event.target.value as UserRole)}
-            className="min-h-10 w-full rounded-xl border border-white/20 bg-[#0b1c40] px-3 text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
+            className="h-9 w-full rounded-xl border border-white/15 bg-[#091c45] px-2.5 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
             title="Cambiar de rol cierra la sesión actual"
           >
             <option value="jefatura">Jefatura</option>
             <option value="coordinador">Coordinador</option>
             <option value="asistente">Asistente</option>
           </select>
-          <p className="text-[10px] leading-snug text-white/50">
+          <p className="text-[9.5px] leading-tight text-white/45">
             Cambiar a Jefatura o Coordinación cierra la sesión actual.
           </p>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="bg-ladp-navy md:border-b md:border-slate-200/80 md:bg-white/95 md:backdrop-blur-md shadow-2xs">
-          <div className="flex items-center justify-between gap-3 px-4 py-3 md:px-6">
+        <header className="sticky top-0 z-30 bg-ladp-navy md:border-b md:border-slate-200/80 md:bg-white/95 md:backdrop-blur-md">
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 md:px-6">
             <div className="md:hidden">{brand}</div>
             {user.rol === "jefatura" ? (
-              <div className="hidden items-center gap-2.5 md:flex">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 border border-slate-200/90 px-3.5 py-1 text-xs font-bold text-slate-700 shadow-2xs">
-                  <Calendar className="h-3.5 w-3.5 text-[#0d428e]" />
+              <div className="hidden items-center gap-2 md:flex">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f2f6fc] border border-[#dce6f5] px-3 py-1 text-[11px] font-bold text-[#1e293b]">
+                  <Calendar className="h-3.5 w-3.5 text-[#0e4ec3]" />
                   FEB 2026
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 border border-slate-200/90 px-3.5 py-1 text-xs font-bold text-slate-700 shadow-2xs">
-                  <MapPin className="h-3.5 w-3.5 text-[#0d428e]" />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f2f6fc] border border-[#dce6f5] px-3 py-1 text-[11px] font-bold text-[#1e293b]">
+                  <MapPin className="h-3.5 w-3.5 text-[#0e4ec3]" />
                   Nivel Nacional (Todas las Regiones)
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200/80 px-3.5 py-1 text-xs font-bold text-[#0d428e] shadow-2xs">
-                  <ShieldCheck className="h-3.5 w-3.5 text-[#0d428e]" />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#eaf1fd] border border-[#cde0fc] px-3 py-1 text-[11px] font-bold text-[#0e4ec3]">
+                  <ShieldCheck className="h-3.5 w-3.5 text-[#0e4ec3]" />
                   Usuarios Jefatura Activos: 6/6
                 </span>
               </div>
             ) : null}
-            <div className="ml-auto flex min-w-0 items-center gap-3">
+            <div className="ml-auto flex min-w-0 items-center gap-2.5">
               <div className="min-w-0 text-right">
-                <p className="max-w-[10rem] truncate text-sm font-black text-white md:max-w-none md:text-[#071938]">
+                <p className="max-w-[10rem] truncate text-[13px] font-bold text-white md:max-w-none md:text-[#0f172a] leading-tight">
                   {user.nombre}
                 </p>
-                <p className="text-[11px] font-black uppercase tracking-wider text-ladp-amber md:text-[#0d428e]">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-ladp-amber md:text-[#0e4ec3]">
                   {USER_ROLE_LABELS[user.rol]}
                 </p>
               </div>
-              <span className="hidden h-10 w-10 items-center justify-center rounded-full bg-[#0d428e] text-xs font-black text-white shadow-sm md:flex ring-2 ring-white">
+              <span className="hidden h-9 w-9 items-center justify-center rounded-full bg-[#0e4ec3] text-xs font-extrabold text-white shadow-xs md:flex ring-2 ring-blue-100">
                 {initialsFor(user.nombre)}
               </span>
               <button
                 type="button"
                 data-testid="nav-logout"
                 onClick={() => void onLogout()}
-                className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-white/25 px-3 text-xs font-bold text-white transition-all hover:bg-white/10 md:border-slate-200/90 md:bg-white md:text-slate-700 md:hover:bg-slate-50 md:shadow-2xs"
+                className="flex h-9 items-center justify-center gap-1.5 rounded-full border border-white/25 px-3 text-xs font-bold text-white transition-all hover:bg-white/10 md:border-slate-200 md:bg-white md:text-slate-700 md:hover:bg-slate-50"
                 aria-label="Salir de la sesión"
               >
                 <LogOut className="h-3.5 w-3.5" aria-hidden={true} />
@@ -391,7 +390,7 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
 
         <main
           id="contenido-principal"
-          className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 pb-40 sm:px-6 md:py-8"
+          className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-4 pb-24 sm:px-5 lg:px-6"
         >
           {children}
         </main>

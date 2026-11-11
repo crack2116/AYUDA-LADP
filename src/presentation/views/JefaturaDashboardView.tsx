@@ -47,8 +47,8 @@ const TABS: ReadonlyArray<{
   { id: "supervision", label: "Supervisión de Mandos", icon: ShieldAlert },
   { id: "campo", label: "Incidencias de Campo", icon: Radar },
   { id: "registro", label: "Registro Táctico", icon: ClipboardCheck },
-  { id: "coordinadores", label: "Desempeño de Coordinadores", icon: Users },
-  { id: "asistentes", label: "Actividad de Asistentes", icon: Activity },
+  { id: "coordinadores", label: "Desempeño Coord.", icon: Users },
+  { id: "asistentes", label: "Actividad Asistentes", icon: Activity },
 ];
 
 export function JefaturaDashboardView() {
@@ -186,7 +186,7 @@ export function JefaturaDashboardView() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Institutional Hero Command Banner */}
       <JefaturaHeroBanner
         onExportCsv={handleExport}
@@ -204,11 +204,11 @@ export function JefaturaDashboardView() {
       ) : null}
 
       {/* Navigation Tabs Bar */}
-      <section className="overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_4px_18px_-4px_rgba(12,45,110,0.06)] border border-slate-200/80">
+      <section className="overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_2px_12px_rgba(12,45,110,0.05)] border border-slate-200/80">
         <div
           role="tablist"
           aria-label="Vistas del panel nacional"
-          className="flex gap-1.5 overflow-x-auto"
+          className="flex items-center justify-between gap-1 overflow-x-auto"
         >
           {TABS.map((tab) => {
             const active = activeTab === tab.id;
@@ -223,13 +223,13 @@ export function JefaturaDashboardView() {
                 aria-selected={active}
                 aria-controls={`panel-${tab.id}`}
                 onClick={() => setActiveTab(tab.id)}
-                className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-black uppercase tracking-wider transition-all ${
+                className={`inline-flex h-9 flex-1 shrink-0 items-center justify-center gap-1.5 rounded-xl px-2.5 text-[11px] font-extrabold uppercase tracking-[0.02em] whitespace-nowrap transition-all ${
                   active
-                    ? "bg-[#0d428e] text-white shadow-md shadow-blue-950/20"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-[#0d428e]"
+                    ? "bg-[#0e4ec3] text-white shadow-[0_4px_12px_rgba(14,78,195,0.3)]"
+                    : "text-slate-600 hover:bg-slate-100/90 hover:text-[#0e4ec3]"
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-3.5 w-3.5 shrink-0" />
                 <span>{tab.label}</span>
               </button>
             );
