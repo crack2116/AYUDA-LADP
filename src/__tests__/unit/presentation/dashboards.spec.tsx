@@ -5,7 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CoordinadorAreaView } from "@/presentation/views/CoordinadorAreaView";
 import { JefaturaDashboardView } from "@/presentation/views/JefaturaDashboardView";
 
-import { captureCsvDownloads, demoUser, FIXED_NOW, renderForRole } from "./helpers";
+import {
+  captureCsvDownloads,
+  demoUser,
+  FIXED_NOW,
+  renderForRole,
+  stubClipboard,
+} from "./helpers";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
@@ -35,6 +41,7 @@ describe("JefaturaDashboardView", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
@@ -324,6 +331,71 @@ describe("JefaturaDashboardView", () => {
     expect(screen.getAllByTestId("incidencia-row")).toHaveLength(9);
     expect(screen.getByTestId("filtro-region")).toHaveTextContent("Nivel Nacional");
   });
+
+  it("validates incidents individually and in bulk from the master table and runs row menu actions", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    stubClipboard(writeText);
+
+    await renderForRole("jefatura", <JefaturaDashboardView />);
+    await screen.findByText("Panel de situación nacional");
+    expect(await screen.findByTestId("kpi-verificadas")).toHaveTextContent("4");
+
+    const bulkBtn = screen.getByTestId("bulk-validate-btn");
+    expect(bulkBtn).toBeDisabled();
+    expect(bulkBtn).toHaveTextContent("Validación Masiva (0)");
+
+    const pendingRows = screen
+      .getAllByTestId("incidencia-row")
+      .filter((row) => within(row).queryByText("Pendiente"));
+    expect(pendingRows.length).toBeGreaterThanOrEqual(2);
+
+    // Bulk validate 1st pending row
+    await user.click(within(pendingRows[0] as HTMLElement).getByRole("checkbox"));
+    expect(bulkBtn).toBeEnabled();
+    expect(bulkBtn).toHaveTextContent("Validación Masiva (1)");
+    await user.click(bulkBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("kpi-verificadas")).toHaveTextContent("5");
+    });
+    expect(screen.getByText("1 incidencia validada correctamente.")).toBeInTheDocument();
+    expect(screen.getByTestId("bulk-validate-btn")).toBeDisabled();
+
+    // Direct row validate on next pending row
+    const remainingPending = screen
+      .getAllByTestId("incidencia-row")
+      .filter((row) => within(row).queryByText("Pendiente"));
+    const secondPending = remainingPending[0] as HTMLElement;
+    await user.click(within(secondPending).getByTitle("Validar existencia"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("kpi-verificadas")).toHaveTextContent("6");
+    });
+
+    // Contextual menu actions: Copy INC code + Jump to Field Map
+    const firstRow = screen.getAllByTestId("incidencia-row")[0] as HTMLElement;
+    const targetCode = within(firstRow).getByText(/INC-\d{4}-\d{5}/).textContent ?? "";
+    await user.click(within(firstRow).getByTitle("Opciones"));
+    await user.click(screen.getByRole("menuitem", { name: "Copiar código INC" }));
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(targetCode);
+    });
+
+    await user.click(within(firstRow).getByTitle("Opciones"));
+    await user.click(screen.getByRole("menuitem", { name: "Ver en Mapa de Campo" }));
+    expect(
+      await screen.findByText("INCIDENCIAS DE CAMPO – MONITOREO GEOESPACIAL Y MAPA DE CALOR"),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the role switcher in the shell when demo tools flag is disabled", async () => {
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_DEMO_TOOLS", "false");
+    await renderForRole("jefatura", <JefaturaDashboardView />);
+    await screen.findByText("Panel de situación nacional");
+
+    expect(screen.queryByLabelText("Cambiar de rol")).not.toBeInTheDocument();
+  });
 });
 
 describe("CoordinadorAreaView", () => {
@@ -334,6 +406,7 @@ describe("CoordinadorAreaView", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 

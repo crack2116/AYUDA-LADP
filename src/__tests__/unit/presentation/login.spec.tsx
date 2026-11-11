@@ -33,6 +33,7 @@ describe("LoginView", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
@@ -109,5 +110,13 @@ describe("LoginView", () => {
     const error = await screen.findByTestId("login-error");
     expect(error).toHaveTextContent("La jurisdicción seleccionada no corresponde a tu usuario.");
     expect(navigation.replace).not.toHaveBeenCalled();
+  });
+
+  it("hides demo quick-fill shortcuts when demo tools flag is disabled", () => {
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_DEMO_TOOLS", "false");
+    render(<LoginView />);
+
+    expect(screen.queryByTestId("login-demo-jefatura")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Accesos de prueba/i)).not.toBeInTheDocument();
   });
 });

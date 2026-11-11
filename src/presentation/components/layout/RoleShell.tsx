@@ -22,6 +22,7 @@ import { can, type Permission } from "@/domain/permissions/rbac";
 import { BrandMark } from "@/presentation/components/brand/BrandMark";
 import { useSession } from "@/presentation/hooks/use-session";
 import { homeForRole } from "@/presentation/lib/format";
+import { isDemoToolsEnabled } from "@/presentation/lib/runtime-flags";
 
 interface NavItem {
   href: string;
@@ -301,7 +302,8 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
             </div>
           ) : null}
 
-          <div className="relative z-10 space-y-1.5 border-t border-white/10 px-3.5 pt-2.5 pb-16 bg-black/25">
+          {isDemoToolsEnabled() ? (
+            <div className="relative z-10 space-y-1.5 border-t border-white/10 px-3.5 pt-2.5 pb-16 bg-black/25">
             <label
               className="block text-[10.5px] font-semibold text-blue-200/80"
               htmlFor="role-switcher"
@@ -324,6 +326,7 @@ export function RoleShell({ user, onLogout, children }: RoleShellProps) {
               Cambiar a Jefatura o Coordinación cierra la sesión actual.
             </p>
           </div>
+          ) : null}
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">

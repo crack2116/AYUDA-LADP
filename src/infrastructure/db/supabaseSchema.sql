@@ -43,7 +43,7 @@ AS $$
 BEGIN
   IF NEW.codigo_auditoria IS NULL THEN
     NEW.codigo_auditoria :=
-      'INC-' || EXTRACT(YEAR FROM CURRENT_DATE)::int || '-' ||
+      'INC-' || EXTRACT(YEAR FROM timezone('America/Lima', now()))::int || '-' ||
       LPAD(nextval('public.incidencia_seq')::text, 5, '0');
   END IF;
   RETURN NEW;
@@ -80,7 +80,7 @@ CREATE TABLE public.incidencias (
     )
   ),
   ocurrio_hoy boolean NOT NULL DEFAULT true,
-  fecha_suceso date NOT NULL CHECK (fecha_suceso <= CURRENT_DATE),
+  fecha_suceso date NOT NULL CHECK (fecha_suceso <= (timezone('America/Lima', now()))::date),
   gps_coords text,
   nota_referencia text CHECK (char_length(nota_referencia) <= 280),
   verificado boolean NOT NULL DEFAULT false,

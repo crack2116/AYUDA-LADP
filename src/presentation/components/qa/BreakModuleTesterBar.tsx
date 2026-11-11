@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, TriangleAlert, Wrench } from "lucide-react";
 
+import { isDemoToolsEnabled } from "@/presentation/lib/runtime-flags";
 import { emitQaInjection, type QaInjection } from "@/presentation/qa/qa-bus";
 
 interface Injection {
@@ -35,6 +36,10 @@ const INJECTIONS: readonly Injection[] = [
  */
 export function BreakModuleTesterBar() {
   const [open, setOpen] = useState(false);
+
+  if (!isDemoToolsEnabled()) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40">

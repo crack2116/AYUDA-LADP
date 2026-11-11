@@ -3,8 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getContainer } from "@/infrastructure/container";
+import { RuntimeErrorFallback } from "@/presentation/components/layout/RuntimeErrorFallback";
 import { BreakModuleTesterBar } from "@/presentation/components/qa/BreakModuleTesterBar";
 import { SupportChatWidget } from "@/presentation/components/support/SupportChatWidget";
+import { isDemoToolsEnabled } from "@/presentation/lib/runtime-flags";
 import { AsistenteNuevaIncidenciaView } from "@/presentation/views/AsistenteNuevaIncidenciaView";
 
 import { FIXED_NOW, renderForRole } from "./helpers";
@@ -30,6 +32,7 @@ describe("SupportChatWidget", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
@@ -87,6 +90,7 @@ describe("BreakModuleTesterBar", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
@@ -135,5 +139,55 @@ describe("BreakModuleTesterBar", () => {
     expect(await getContainer().incidenciaRepository.listAll()).toHaveLength(
       SEEDED_REPORTS,
     );
+  });
+
+  it("hides the QA bar when demo tools flag is disabled", () => {
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_DEMO_TOOLS", "false");
+    const { container } = render(<BreakModuleTesterBar />);
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("isDemoToolsEnabled & RuntimeErrorFallback", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("evaluates runtime flag across explicit values and NODE_ENV", () => {
+    expect(isDemoToolsEnabled()).toBe(true);
+
+    vi.stubEnv("NODE_ENV", "production");
+    expect(isDemoToolsEnabled()).toBe(false);
+
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_DEMO_TOOLS", "true");
+    expect(isDemoToolsEnabled()).toBe(true);
+
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_DEMO_TOOLS", "false");
+    expect(isDemoToolsEnabled()).toBe(false);
+  });
+
+  it("renders RuntimeErrorFallback with digest, login link and retry handler", async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+
+    render(
+      <RuntimeErrorFallback
+        digest="ERR-LADP-500"
+        onRetry={onRetry}
+        showHomeLink={true}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Ocurrió un error inesperado en esta vista",
+    );
+    expect(screen.getByText(/ERR-LADP-500/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Volver al inicio de sesión" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });

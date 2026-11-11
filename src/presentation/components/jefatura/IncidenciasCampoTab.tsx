@@ -42,6 +42,7 @@ export interface IncidenciasCampoTabProps {
   centros?: readonly CentroPoblado[];
   users?: readonly UserProfile[];
   currentUser?: UserProfile | null;
+  initialSelectedId?: string | null;
   onValidateIncidencia?: (incidenciaId: string) => Promise<boolean>;
   onRegisterAtCentro?: (centroId: string) => void;
 }
@@ -52,6 +53,7 @@ export function IncidenciasCampoTab({
   rows: rowsProp,
   users: usersProp,
   currentUser: currentUserProp,
+  initialSelectedId = null,
   onValidateIncidencia,
   onRegisterAtCentro,
 }: IncidenciasCampoTabProps) {
@@ -60,7 +62,13 @@ export function IncidenciasCampoTab({
   const [sessionUser, setSessionUser] = useState<UserProfile | null>(null);
 
   const [activeLayer, setActiveLayer] = useState<LayerMode>("calor");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
+
+  useEffect(() => {
+    if (initialSelectedId) {
+      setSelectedId(initialSelectedId);
+    }
+  }, [initialSelectedId]);
   const [filterSearch, setFilterSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "verified" | "gps">("all");
   const [tipoFilter, setTipoFilter] = useState("all");

@@ -29,6 +29,7 @@ import { getContainer } from "@/infrastructure/container";
 import { DEMO_PASSWORD } from "@/infrastructure/seed/demo-data";
 import { BrandMark } from "@/presentation/components/brand/BrandMark";
 import { homeForRole } from "@/presentation/lib/format";
+import { isDemoToolsEnabled } from "@/presentation/lib/runtime-flags";
 import { requestOpenSupportChat } from "@/presentation/support/support-bus";
 
 const DEMO_ACCOUNTS: ReadonlyArray<{
@@ -499,38 +500,40 @@ export function LoginView() {
         </div>
 
         {/* Accesos de demostración: sin tarjeta ni borde, solo separación */}
-        <div className="relative z-10 mt-8 w-full max-w-[430px] pr-12 sm:pr-0">
-          <div className="flex items-center justify-between gap-2 px-1">
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-              Accesos de prueba · Clave {DEMO_PASSWORD}
-            </span>
-            <span className="hidden text-[10px] font-medium text-slate-400 sm:inline">
-              Clic para rellenar
-            </span>
+        {isDemoToolsEnabled() ? (
+          <div className="relative z-10 mt-8 w-full max-w-[430px] pr-12 sm:pr-0">
+            <div className="flex items-center justify-between gap-2 px-1">
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                Accesos de prueba · Clave {DEMO_PASSWORD}
+              </span>
+              <span className="hidden text-[10px] font-medium text-slate-400 sm:inline">
+                Clic para rellenar
+              </span>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {DEMO_ACCOUNTS.map((account) => (
+                <button
+                  key={account.identificadorOficial}
+                  type="button"
+                  data-testid={account.testId}
+                  onClick={() => fillDemo(account)}
+                  className="flex flex-col items-center justify-center rounded-xl bg-[#f2f6fc] px-2 py-2 text-center transition-colors hover:bg-[#e4eefb]"
+                >
+                  <span className="font-mono text-xs font-extrabold text-[#071b3e]">
+                    {account.label}
+                  </span>
+                  <span className="max-w-full truncate text-[9px] font-medium text-slate-500">
+                    {account.jurisdiccion === "nacional"
+                      ? "Jefatura"
+                      : account.jurisdiccion === "campo"
+                        ? "Asistente"
+                        : "Coordinador"}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="mt-2 grid grid-cols-3 gap-2">
-            {DEMO_ACCOUNTS.map((account) => (
-              <button
-                key={account.identificadorOficial}
-                type="button"
-                data-testid={account.testId}
-                onClick={() => fillDemo(account)}
-                className="flex flex-col items-center justify-center rounded-xl bg-[#f2f6fc] px-2 py-2 text-center transition-colors hover:bg-[#e4eefb]"
-              >
-                <span className="font-mono text-xs font-extrabold text-[#071b3e]">
-                  {account.label}
-                </span>
-                <span className="max-w-full truncate text-[9px] font-medium text-slate-500">
-                  {account.jurisdiccion === "nacional"
-                    ? "Jefatura"
-                    : account.jurisdiccion === "campo"
-                      ? "Asistente"
-                      : "Coordinador"}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
+        ) : null}
       </section>
     </div>
   );

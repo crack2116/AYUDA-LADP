@@ -73,6 +73,7 @@ export function JefaturaDashboardView() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>("incidencias");
   const [draftCentroId, setDraftCentroId] = useState<string | null>(null);
+  const [focusedIncidentId, setFocusedIncidentId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -255,6 +256,23 @@ export function JefaturaDashboardView() {
     return true;
   };
 
+  const handleBulkValidate = async (incidenciaIds: readonly string[]): Promise<number> => {
+    const useCase = getContainer().useCases.validateExistence;
+    let validated = 0;
+    for (const incidenciaId of incidenciaIds) {
+      const result = await useCase.execute({ incidenciaId, user });
+      if (!result.ok) {
+        setLoadError(result.error.message);
+        break;
+      }
+      validated += 1;
+    }
+    if (validated > 0) {
+      await load();
+    }
+    return validated;
+  };
+
   const handleIncidentCreated = async () => {
     await load();
   };
@@ -262,6 +280,11 @@ export function JefaturaDashboardView() {
   const handleRegisterAtCentro = (centroId: string) => {
     setDraftCentroId(centroId || null);
     setActiveTab("registro");
+  };
+
+  const handleInspectOnMap = (incidenciaId: string) => {
+    setFocusedIncidentId(incidenciaId);
+    setActiveTab("campo");
   };
 
   return (
@@ -383,7 +406,14 @@ export function JefaturaDashboardView() {
             />
 
             {/* Tactical Master Incidents Table */}
-            <JefaturaIncidentTable rows={filteredRows} loading={loading} />
+            <JefaturaIncidentTable
+              rows={filteredRows}
+              loading={loading}
+              onValidateIncidencia={handleValidateIncidencia}
+              onBulkValidate={handleBulkValidate}
+              onInspectOnMap={handleInspectOnMap}
+              onRegisterAtCentro={handleRegisterAtCentro}
+            />
           </>
         ) : null}
 
@@ -403,6 +433,7 @@ export function JefaturaDashboardView() {
             centros={centros}
             users={users}
             currentUser={user}
+            initialSelectedId={focusedIncidentId}
             onValidateIncidencia={handleValidateIncidencia}
             onRegisterAtCentro={handleRegisterAtCentro}
           />
