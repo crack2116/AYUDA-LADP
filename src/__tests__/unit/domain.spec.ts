@@ -10,7 +10,7 @@ import { SUPPORT_PROBLEM_OPTIONS } from "@/domain/entities/support-ticket";
 import { USER_ROLE_LABELS, type UserProfile, type UserRole } from "@/domain/entities/user";
 import { formatAuditCode } from "@/domain/lib/audit-code";
 import { toLimaDateKey } from "@/domain/lib/date";
-import { formatGpsCoords } from "@/domain/lib/gps";
+import { formatGpsCoords, formatManualGpsCoords, parseGpsCoords } from "@/domain/lib/gps";
 import { can, isIncidenciaVisible, scopeForUser } from "@/domain/permissions/rbac";
 import {
   createIncidenciaSchema,
@@ -19,6 +19,13 @@ import {
 import { loginSchema } from "@/domain/schemas/login.schema";
 import { supportTicketSchema } from "@/domain/schemas/support-ticket.schema";
 import { incidenciasWithinWindow } from "@/domain/services/duplicate-window";
+import {
+  buildIncidenciasGeoJson,
+  buildPersonnelSupervisionRows,
+  extractInitials,
+  projectPeruCoordsToPercent,
+  summarizeRegionsDeployment,
+} from "@/domain/services/territorial-analysis";
 
 const TODAY = "2026-11-10";
 
@@ -531,5 +538,137 @@ describe("spanish vocabulary contract", () => {
       "Error al guardar o generar código INC",
       "Problema al validar si existe un reporte",
     ]);
+  });
+});
+
+describe("GPS parsing, manual formatting and territorial analysis", () => {
+  it("parses formatted and plain WGS84 coordinates and rejects invalid inputs", () => {
+    expect(parseGpsCoords("-5.26580, -80.67890 (±11m)")).toEqual({
+      latitude: -5.2658,
+      longitude: -80.6789,
+      accuracyMeters: 11,
+    });
+    expect(parseGpsCoords("-14.06777, -75.72861")).toEqual({
+      latitude: -14.06777,
+      longitude: -75.72861,
+      accuracyMeters: null,
+    });
+    expect(parseGpsCoords(null)).toBeNull();
+    expect(parseGpsCoords("sin coordenadas")).toBeNull();
+    expect(parseGpsCoords("95.0, -75.0")).toBeNull();
+    expect(parseGpsCoords("-12.0, -190.0")).toBeNull();
+
+    expect(formatManualGpsCoords("-5.2654", "-80.6782")).toBe("-5.26540, -80.67820");
+    expect(formatManualGpsCoords("", "-80.6782")).toBeNull();
+    expect(formatManualGpsCoords("abc", "-80.6782")).toBeNull();
+    expect(formatManualGpsCoords("-91", "-80")).toBeNull();
+  });
+
+  it("projects coordinates within Peru bounds and extracts initials", () => {
+    const north = projectPeruCoordsToPercent({ latitude: -5.2658, longitude: -80.6789 });
+    const south = projectPeruCoordsToPercent({ latitude: -14.0678, longitude: -75.7286 });
+    expect(north.xPercent).toBeGreaterThanOrEqual(10);
+    expect(north.yPercent).toBeLessThan(south.yPercent);
+    expect(south.xPercent).toBeGreaterThan(north.xPercent);
+    expect(extractInitials("Rosa Herrera Campos")).toBe("RH");
+    expect(extractInitials("Admin")).toBe("AD");
+    expect(extractInitials("   ")).toBe("--");
+  });
+
+  it("summarizes regions, personnel supervision and GeoJSON features from real rows", () => {
+    const users: UserProfile[] = [
+      {
+        id: "u-jef",
+        identificadorOficial: "JEF-001",
+        nombre: "María Elena Quispe",
+        rol: "jefatura",
+        teatroOperacionesRegion: null,
+        centroPobladoIds: [],
+      },
+      {
+        id: "u-coo",
+        identificadorOficial: "COO-PN-01",
+        nombre: "Rosa Herrera Campos",
+        rol: "coordinador",
+        teatroOperacionesRegion: "Piura / Norte",
+        centroPobladoIds: ["c-1"],
+      },
+      {
+        id: "u-asi",
+        identificadorOficial: "ASI-001",
+        nombre: "Luis Paredes",
+        rol: "asistente",
+        teatroOperacionesRegion: "Piura / Norte",
+        centroPobladoIds: ["c-1"],
+      },
+    ];
+    const centros: CentroPoblado[] = [
+      {
+        id: "c-1",
+        nombre: "Catacaos",
+        sector: "Bajo Piura",
+        region: "Piura / Norte",
+        coordinadorZonaId: "u-coo",
+      },
+    ];
+    const rows = [
+      {
+        incidencia: {
+          id: "inc-1",
+          codigoAuditoria: "INC-2026-00001",
+          centroPobladoId: "c-1",
+          tipoAfectacion: "inundacion" as const,
+          hogaresAfectados: 20,
+          necesidadPrincipal: "agua_potable" as const,
+          ocurrioHoy: true,
+          fechaSuceso: "2026-11-10",
+          gpsCoords: "-5.26580, -80.67890 (±10m)",
+          notaReferencia: "Agua hasta 40 cm",
+          verificado: true,
+          creadoPor: "u-asi",
+          createdAt: "2026-11-10T14:00:00.000Z",
+        },
+        centroPoblado: centros[0]!,
+      },
+      {
+        incidencia: {
+          id: "inc-2",
+          codigoAuditoria: "INC-2026-00002",
+          centroPobladoId: "c-1",
+          tipoAfectacion: "inundacion" as const,
+          hogaresAfectados: 5,
+          necesidadPrincipal: "agua_potable" as const,
+          ocurrioHoy: false,
+          fechaSuceso: "2026-11-09",
+          gpsCoords: null,
+          notaReferencia: null,
+          verificado: false,
+          creadoPor: "u-asi",
+          createdAt: "2026-11-09T14:00:00.000Z",
+        },
+        centroPoblado: centros[0]!,
+      },
+    ];
+
+    const regionSummary = summarizeRegionsDeployment(users, centros, rows);
+    expect(regionSummary).toHaveLength(1);
+    expect(regionSummary[0]).toMatchObject({
+      region: "Piura / Norte",
+      totalIncidencias: 2,
+      verificadas: 1,
+      pendientes: 1,
+      totalHogares: 25,
+      latestDateKey: "2026-11-10",
+    });
+
+    const personnel = buildPersonnelSupervisionRows(users, centros, rows);
+    expect(personnel.find((p) => p.profile.id === "u-asi")?.createdCount).toBe(2);
+    expect(personnel.find((p) => p.profile.id === "u-coo")?.areaVerifiedCount).toBe(1);
+
+    const geoJson = buildIncidenciasGeoJson(rows);
+    expect(geoJson.type).toBe("FeatureCollection");
+    expect(geoJson.features).toHaveLength(1);
+    expect(geoJson.features[0]?.geometry.coordinates).toEqual([-80.6789, -5.2658]);
+    expect(geoJson.features[0]?.properties.codigoAuditoria).toBe("INC-2026-00001");
   });
 });

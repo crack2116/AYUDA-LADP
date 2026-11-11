@@ -149,7 +149,7 @@ test("flujo completo AYUDA LADP", async ({ page, context }) => {
   await page.getByTestId("login-submit").click();
   await page.waitForURL("**/jefatura");
   await expect(
-    page.getByRole("heading", { name: "Panel de situación nacional" }),
+    page.getByRole("heading", { name: "Panel de Control Nacional" }),
   ).toBeVisible();
 
   for (const testId of KPI_TEST_IDS) {

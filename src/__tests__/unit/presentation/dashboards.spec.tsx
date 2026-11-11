@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CoordinadorAreaView } from "@/presentation/views/CoordinadorAreaView";
 import { JefaturaDashboardView } from "@/presentation/views/JefaturaDashboardView";
 
-import { captureCsvDownloads, FIXED_NOW, renderForRole } from "./helpers";
+import { captureCsvDownloads, demoUser, FIXED_NOW, renderForRole } from "./helpers";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
@@ -56,12 +56,16 @@ describe("JefaturaDashboardView", () => {
 
     await user.click(screen.getByTestId("tab-supervision"));
     expect(await screen.findByText("SUPERVISIÓN DE MANDOS Y DESPLIEGUE TERRITORIAL")).toBeInTheDocument();
-    expect(screen.getByText("Jorge Quispe C.")).toBeInTheDocument();
-    expect(screen.getByText("Cuadrante Norte 1 - Piura & Tumbes")).toBeInTheDocument();
-    expect(screen.getByText("Nivel 5: Catástrofe Nacional (Decreto Supremo)")).toBeInTheDocument();
+    expect(screen.getAllByText(demoUser("jefatura").nombre).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Piura / Norte").length).toBeGreaterThan(0);
+    expect(screen.getByText("Flujo de Validación y Escalación LADP")).toBeInTheDocument();
+    expect(screen.queryByText("Jorge Quispe C.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Cnel. Eduardo Salazar R.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Nivel 5: Catástrofe Nacional (Decreto Supremo)")).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId("tab-campo"));
     expect(await screen.findByText("INCIDENCIAS DE CAMPO – MONITOREO GEOESPACIAL Y MAPA DE CALOR")).toBeInTheDocument();
+    expect(screen.queryByText("1,428")).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId("tab-registro"));
     expect(await screen.findByText("REGISTRO TÁCTICO DE INCIDENCIA DE CAMPO")).toBeInTheDocument();
@@ -144,37 +148,102 @@ describe("JefaturaDashboardView", () => {
     await user.click(screen.getByText("Por Cuenca"));
     await user.click(screen.getByText("Ámbito Nacional"));
 
-    // Supervision tab controls
+    // Supervision tab real controls & CSV export
+    const { filenames: supFilenames } = captureCsvDownloads();
     await user.click(screen.getByTestId("tab-supervision"));
-    await user.click(screen.getByRole("button", { name: /centro/i }));
-    await user.click(screen.getByRole("button", { name: /sur/i }));
-    await user.click(screen.getByRole("button", { name: /oriente/i }));
-    await user.click(screen.getByRole("button", { name: /norte/i }));
+    expect(await screen.findAllByTestId("region-deployment-card")).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "Piura / Norte" }));
+    expect(screen.getAllByTestId("region-deployment-card")).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Todas" }));
+    expect(screen.getAllByTestId("region-deployment-card")).toHaveLength(2);
 
-    const supSelects = screen.getAllByRole("combobox");
-    const rankSelect = supSelects.find((s) => s.textContent?.includes("Todos los Rangos"));
-    if (rankSelect) {
-      await user.selectOptions(rankSelect, "coronel");
-      expect(screen.getByText("Cnel. Eduardo Salazar R.")).toBeInTheDocument();
-      await user.selectOptions(rankSelect, "mayor");
-      expect(screen.getByText("Mayor Jorge Quispe C.")).toBeInTheDocument();
-      await user.selectOptions(rankSelect, "civil");
-      expect(screen.getByText("Rosa Herrera Campos")).toBeInTheDocument();
-      await user.selectOptions(rankSelect, "all");
-    }
+    const personnelTable = screen.getByRole("table");
 
-    const supRegionSelect = supSelects.find((s) => s.textContent?.includes("Todas las Regiones"));
-    if (supRegionSelect) {
-      await user.selectOptions(supRegionSelect, "piura");
-      await user.selectOptions(supRegionSelect, "all");
-    }
+    const roleSelect = screen.getByLabelText("Filtrar por rol");
+    await user.selectOptions(roleSelect, "coordinador");
+    expect(within(personnelTable).getAllByText("Rosa Herrera Campos").length).toBeGreaterThan(0);
+    expect(within(personnelTable).queryByText("Luis Paredes")).not.toBeInTheDocument();
+    await user.selectOptions(roleSelect, "all");
 
-    const officerSearch = screen.getByPlaceholderText("Buscar oficial o base...");
-    await user.type(officerSearch, "Salazar");
-    expect(screen.getByText("Cnel. Eduardo Salazar R.")).toBeInTheDocument();
-    expect(screen.queryByText("Manuel Vásquez")).not.toBeInTheDocument();
-    await user.clear(officerSearch);
+    const regionFilterSelect = screen.getByLabelText("Filtrar personal por región");
+    await user.selectOptions(regionFilterSelect, "Sur / Centro");
+    expect(within(personnelTable).getAllByText("Miguel Ángel Flores").length).toBeGreaterThan(0);
+    expect(within(personnelTable).queryByText("Rosa Herrera Campos")).not.toBeInTheDocument();
+    await user.selectOptions(regionFilterSelect, "all");
+
+    const personnelSearch = screen.getByPlaceholderText("Buscar personal, ID o región...");
+    await user.type(personnelSearch, "Rosa");
+    expect(within(personnelTable).getAllByText("Rosa Herrera Campos").length).toBeGreaterThan(0);
+    expect(within(personnelTable).queryByText("Miguel Ángel Flores")).not.toBeInTheDocument();
+
+    const detailButtons = screen.getAllByRole("button", { name: /ver centros/i });
+    await user.click(detailButtons[0] as HTMLElement);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await user.click(screen.getByLabelText("Cerrar detalle"));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    await user.clear(personnelSearch);
+    await user.click(screen.getByTestId("export-nomina-btn"));
+    await waitFor(() => {
+      expect(supFilenames).toEqual(["nomina-supervision-2026-11-10.csv"]);
+    });
   });
+
+  it("propagates new incidents registered in Registro Táctico and field validations to KPIs and tabs", async () => {
+    const user = userEvent.setup();
+    await renderForRole("jefatura", <JefaturaDashboardView />);
+
+    await screen.findByText("Panel de situación nacional");
+    expect(await screen.findByTestId("kpi-centros")).toHaveTextContent("9");
+    expect(screen.getByTestId("kpi-verificadas")).toHaveTextContent("4");
+
+    // Register a real incident from Registro Táctico
+    await user.click(screen.getByTestId("tab-registro"));
+    await screen.findByText("REGISTRO TÁCTICO DE INCIDENCIA DE CAMPO");
+
+    const centroSelect = screen.getByTestId("centro-select");
+    await waitFor(() => {
+      expect(within(centroSelect).getAllByRole("option").length).toBeGreaterThan(1);
+    });
+    await user.selectOptions(centroSelect, "c-catacaos");
+    expect(await screen.findByTestId("duplicate-alert")).toBeInTheDocument();
+
+    // Switch to a locality without prior reports so distinct centros KPI updates 9 -> 10
+    await user.selectOptions(centroSelect, "c-la-arena");
+    await waitFor(() => {
+      expect(screen.queryByTestId("duplicate-alert")).not.toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("phenomenon-huaico"));
+    await user.click(screen.getByTestId("necesidad-alimentos"));
+    await user.click(screen.getByTestId("counter-hogares-inc"));
+    await user.type(screen.getByTestId("nota-referencia-input"), "Reporte desde tablero táctico");
+
+    await user.click(screen.getByTestId("submit-incident-btn"));
+    const auditCode = await screen.findByTestId("codigo-auditoria");
+    expect(auditCode).toHaveTextContent(/INC-\d{4}-\d{5}/);
+
+    // Returning to Dashboard Nacional shows updated KPIs and rows (9 -> 10)
+    await user.click(screen.getByTestId("tab-incidencias"));
+    await waitFor(() => {
+      expect(screen.getAllByTestId("incidencia-row")).toHaveLength(10);
+    });
+    expect(screen.getByTestId("kpi-centros")).toHaveTextContent("10");
+    expect(screen.getByTestId("kpi-hogares")).toHaveTextContent("170");
+
+    // Validating a pending incident from Incidencias de Campo updates kpi-verificadas (4 -> 5)
+    await user.click(screen.getByTestId("tab-campo"));
+    expect(await screen.findAllByTestId("campo-incident-row")).toHaveLength(10);
+    const validateBtn = screen.getByTestId("campo-validate-btn");
+    await user.click(validateBtn);
+
+    await user.click(screen.getByTestId("tab-incidencias"));
+    await waitFor(() => {
+      expect(screen.getByTestId("kpi-verificadas")).toHaveTextContent("5");
+    });
+  }, 15_000);
 
   it("builds the regional breakdown from the loaded incidents instead of fixed demo series", async () => {
     const user = userEvent.setup();

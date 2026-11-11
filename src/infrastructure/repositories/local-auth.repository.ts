@@ -91,4 +91,11 @@ export class LocalAuthRepository implements AuthRepository {
   async keepSession(profile: UserProfile): Promise<void> {
     writeSessionValue(SESSION_KEY, profile, true);
   }
+
+  async listUsers(): Promise<UserProfile[]> {
+    return DEMO_USERS.map((user) => ({
+      ...user,
+      centroPobladoIds: [...user.centroPobladoIds],
+    }));
+  }
 }

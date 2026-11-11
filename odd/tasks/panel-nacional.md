@@ -127,14 +127,8 @@ dos radios (`rounded-xl` tarjetas / `rounded-lg` controles) y tres pesos tipogr�
 `SupervisionMandosTab`).
 
 ## Deuda conocida
-- Las pestañas secundarias (`SupervisionMandosTab`, `IncidenciasCampoTab`,
-  `RegistroTacticoTab`) mantienen arreglos locales estáticos (`OFFICERS_ROSTER`,
-  `HOTSPOTS_DATA`, `GEOGRAPHIC_DATA` y métricas operativas de referencia como `124ms` /
-  `412 Estaciones`) hasta que se conecten a casos de uso y repositorios reales de
-  `application/` y `infrastructure/`.
 - El FAB de soporte (`fixed bottom-20 right-4`) puede solaparse visualmente con el
   borde derecho de controles cuando el flujo cae a esa altura en desktop (`1440×900`).
 
 ## Next step
-Conectar `SupervisionMandosTab`, `IncidenciasCampoTab` y `RegistroTacticoTab` con
-casos de uso reales sobre `IncidentRepository` y persistencia real de borradores.
+La conexión real de `SupervisionMandosTab`, `IncidenciasCampoTab` y `RegistroTacticoTab` con repositorios, casos de uso, GPS del navegador y `LocalCache` quedó completada en [jefatura-real-data.md](./jefatura-real-data.md).

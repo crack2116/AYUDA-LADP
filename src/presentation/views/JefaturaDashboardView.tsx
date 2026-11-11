@@ -13,11 +13,10 @@ import {
 import type { IncidenciaConCentro } from "@/application/ports/incidencia.repository";
 import type { CentroPoblado } from "@/domain/entities/centro-poblado";
 import type { JefaturaKpis } from "@/domain/entities/kpis";
-import { USER_ROLE_LABELS } from "@/domain/entities/user";
+import { USER_ROLE_LABELS, type UserProfile } from "@/domain/entities/user";
 import { isIncidenciaVisible, scopeForUser } from "@/domain/permissions/rbac";
 import { calculateJefaturaKpis } from "@/domain/services/kpi-calculator";
 import { getContainer } from "@/infrastructure/container";
-import { DEMO_USERS } from "@/infrastructure/seed/demo-data";
 
 import { ShellHeaderSlot, useAppSession } from "@/presentation/components/layout/RoleShell";
 import { IncidenciasCampoTab } from "@/presentation/components/jefatura/IncidenciasCampoTab";
@@ -69,9 +68,11 @@ export function JefaturaDashboardView() {
   const [kpis, setKpis] = useState<JefaturaKpis | null>(null);
   const [rows, setRows] = useState<IncidenciaConCentro[]>([]);
   const [centros, setCentros] = useState<CentroPoblado[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>("incidencias");
+  const [draftCentroId, setDraftCentroId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -85,10 +86,11 @@ export function JefaturaDashboardView() {
 
   const load = useCallback(async () => {
     const container = getContainer();
-    const [kpiResult, listResult, centroList] = await Promise.all([
+    const [kpiResult, listResult, centroList, usersResult] = await Promise.all([
       container.useCases.calculateKpis.execute({ now: new Date() }),
       container.useCases.listIncidencias.execute({ user }),
       container.centroPobladoRepository.listAll(),
+      container.useCases.listUsers.execute({ user }),
     ]);
 
     if (kpiResult.ok) {
@@ -101,6 +103,9 @@ export function JefaturaDashboardView() {
     } else {
       setLoadError(listResult.error.message);
     }
+    if (usersResult.ok) {
+      setUsers(usersResult.value);
+    }
     setCentros(centroList);
     setLoading(false);
   }, [user]);
@@ -111,32 +116,36 @@ export function JefaturaDashboardView() {
 
   const coordinatorRows = useMemo(
     () =>
-      DEMO_USERS.filter((profile) => profile.rol === "coordinador").map((profile) => {
-        const assignedCentros = centros.filter(
-          (centro) =>
-            centro.coordinadorZonaId === profile.id ||
-            profile.centroPobladoIds.includes(centro.id),
-        );
-        const areaRows = rows.filter((row) =>
-          isIncidenciaVisible(profile, row.incidencia, centros),
-        );
-        return {
-          profile,
-          centros: assignedCentros.length,
-          incidencias: areaRows.length,
-          verificadas: areaRows.filter((row) => row.incidencia.verificado).length,
-        };
-      }),
-    [centros, rows],
+      users
+        .filter((profile) => profile.rol === "coordinador")
+        .map((profile) => {
+          const assignedCentros = centros.filter(
+            (centro) =>
+              centro.coordinadorZonaId === profile.id ||
+              profile.centroPobladoIds.includes(centro.id),
+          );
+          const areaRows = rows.filter((row) =>
+            isIncidenciaVisible(profile, row.incidencia, centros),
+          );
+          return {
+            profile,
+            centros: assignedCentros.length,
+            incidencias: areaRows.length,
+            verificadas: areaRows.filter((row) => row.incidencia.verificado).length,
+          };
+        }),
+    [centros, rows, users],
   );
 
   const assistantRows = useMemo(
     () =>
-      DEMO_USERS.filter((profile) => profile.rol === "asistente").map((profile) => ({
-        profile,
-        reportes: rows.filter((row) => row.incidencia.creadoPor === profile.id).length,
-      })),
-    [rows],
+      users
+        .filter((profile) => profile.rol === "asistente")
+        .map((profile) => ({
+          profile,
+          reportes: rows.filter((row) => row.incidencia.creadoPor === profile.id).length,
+        })),
+    [rows, users],
   );
 
   const filteredRows = useMemo(() => {
@@ -231,6 +240,28 @@ export function JefaturaDashboardView() {
       return;
     }
     downloadTextFile(result.value.filename, result.value.csv);
+  };
+
+  const handleValidateIncidencia = async (incidenciaId: string): Promise<boolean> => {
+    const result = await getContainer().useCases.validateExistence.execute({
+      incidenciaId,
+      user,
+    });
+    if (!result.ok) {
+      setLoadError(result.error.message);
+      return false;
+    }
+    await load();
+    return true;
+  };
+
+  const handleIncidentCreated = async () => {
+    await load();
+  };
+
+  const handleRegisterAtCentro = (centroId: string) => {
+    setDraftCentroId(centroId || null);
+    setActiveTab("registro");
   };
 
   return (
@@ -357,15 +388,33 @@ export function JefaturaDashboardView() {
         ) : null}
 
         {activeTab === "supervision" ? (
-          <SupervisionMandosTab />
+          <SupervisionMandosTab
+            users={users}
+            centros={centros}
+            rows={rows}
+            currentUser={user}
+            onNavigateTab={(tab) => setActiveTab(tab)}
+          />
         ) : null}
 
         {activeTab === "campo" ? (
-          <IncidenciasCampoTab />
+          <IncidenciasCampoTab
+            rows={filteredRows}
+            centros={centros}
+            users={users}
+            currentUser={user}
+            onValidateIncidencia={handleValidateIncidencia}
+            onRegisterAtCentro={handleRegisterAtCentro}
+          />
         ) : null}
 
         {activeTab === "registro" ? (
-          <RegistroTacticoTab />
+          <RegistroTacticoTab
+            centros={centros}
+            currentUser={user}
+            initialCentroId={draftCentroId}
+            onIncidentCreated={handleIncidentCreated}
+          />
         ) : null}
 
         {activeTab === "coordinadores" ? (

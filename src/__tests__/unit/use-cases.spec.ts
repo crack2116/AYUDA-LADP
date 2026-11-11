@@ -11,6 +11,7 @@ import type {
   IncidenciaCreateMeta,
   IncidenciaRepository,
 } from "@/application/ports/incidencia.repository";
+import type { LocalCache } from "@/application/ports/local-cache";
 import type { SupportTicketRepository } from "@/application/ports/support-ticket.repository";
 import { CheckDuplicateIncidenciaUseCase } from "@/application/use-cases/check-duplicate-incidencia.use-case";
 import { CalculateJefaturaKpisUseCase } from "@/application/use-cases/calculate-jefatura-kpis.use-case";
@@ -18,7 +19,9 @@ import { CreateIncidenciaUseCase } from "@/application/use-cases/create-incidenc
 import { CreateSupportTicketUseCase } from "@/application/use-cases/create-support-ticket.use-case";
 import { ExportIncidenciasCsvUseCase } from "@/application/use-cases/export-incidencias-csv.use-case";
 import { ListIncidenciasUseCase } from "@/application/use-cases/list-incidencias.use-case";
+import { ListUsersUseCase } from "@/application/use-cases/list-users.use-case";
 import { LoginUseCase } from "@/application/use-cases/login.use-case";
+import { TacticalDraftsUseCase } from "@/application/use-cases/tactical-drafts.use-case";
 import { ValidateIncidenciaExistenceUseCase } from "@/application/use-cases/validate-incidencia-existence.use-case";
 import type { CentroPoblado } from "@/domain/entities/centro-poblado";
 import type { Incidencia, IncidenciaDraft } from "@/domain/entities/incidencia";
@@ -684,6 +687,7 @@ describe("LoginUseCase", () => {
       restoreSession: async () => null,
       logout: async () => undefined,
       keepSession: async () => undefined,
+      listUsers: async () => [jefatura],
     };
     const useCase = new LoginUseCase({ authRepository });
 
@@ -710,6 +714,7 @@ describe("LoginUseCase", () => {
       restoreSession: async () => null,
       logout: async () => undefined,
       keepSession: async () => undefined,
+      listUsers: async () => [],
     };
     const useCase = new LoginUseCase({ authRepository });
 
@@ -816,5 +821,93 @@ describe("audit code allocator concurrency", () => {
     expect(new Set(codes).size).toBe(50);
     expect(codes[0]).toBe("INC-2026-00001");
     expect(codes[49]).toBe("INC-2026-00050");
+  });
+});
+
+describe("ListUsersUseCase", () => {
+  const makeAuth = (profiles: UserProfile[]): AuthRepository => ({
+    login: async () => ok(jefatura),
+    restoreSession: async () => null,
+    logout: async () => undefined,
+    keepSession: async () => undefined,
+    listUsers: async () => profiles,
+  });
+
+  it("lists personnel only for roles with user:read permission", async () => {
+    const useCase = new ListUsersUseCase({
+      authRepository: makeAuth([jefatura, coordinadorPiura, asistenteUno]),
+    });
+
+    const allowed = await useCase.execute({ user: jefatura });
+    expect(allowed.ok).toBe(true);
+    if (allowed.ok) {
+      expect(allowed.value).toHaveLength(3);
+    }
+
+    const deniedCoord = await useCase.execute({ user: coordinadorPiura });
+    expect(deniedCoord.ok).toBe(false);
+    if (!deniedCoord.ok) {
+      expect(deniedCoord.error.code).toBe("forbidden");
+    }
+
+    const deniedAsist = await useCase.execute({ user: asistenteUno });
+    expect(deniedAsist.ok).toBe(false);
+  });
+});
+
+describe("TacticalDraftsUseCase", () => {
+  it("persists, updates and removes tactical drafts in LocalCache", () => {
+    const backing = new Map<string, unknown>();
+    const cache: LocalCache = {
+      get: <T>(key: string) => (backing.has(key) ? (backing.get(key) as T) : null),
+      set: <T>(key: string, value: T) => {
+        backing.set(key, value);
+      },
+      remove: (key: string) => {
+        backing.delete(key);
+      },
+    };
+    const useCase = new TacticalDraftsUseCase({ cache, now: () => NOW });
+
+    expect(useCase.listDrafts()).toEqual([]);
+
+    const { saved, drafts } = useCase.saveDraft({
+      centroPobladoId: "c-catacaos",
+      tipoAfectacion: "inundacion",
+      necesidadPrincipal: "agua_potable",
+      hogaresAfectados: 18,
+      ocurrioHoy: true,
+      fechaSuceso: TODAY,
+      gpsCoords: "-5.26580, -80.67890",
+      notaReferencia: "Calle Comercio anegada",
+      reportingChannel: "bgan",
+      transitability: "aislado",
+      servicesAffected: ["sinAgua"],
+    });
+
+    expect(drafts).toHaveLength(1);
+    expect(saved.savedAt).toBe(NOW.toISOString());
+    expect(useCase.listDrafts()).toHaveLength(1);
+
+    const updated = useCase.saveDraft({
+      id: saved.id,
+      centroPobladoId: "c-catacaos",
+      tipoAfectacion: "inundacion",
+      necesidadPrincipal: "alimentos",
+      hogaresAfectados: 22,
+      ocurrioHoy: true,
+      fechaSuceso: TODAY,
+      gpsCoords: "-5.26580, -80.67890",
+      notaReferencia: "Actualizado",
+      reportingChannel: "radio",
+      transitability: "bloqueada",
+      servicesAffected: ["sinAgua", "sinLuz"],
+    });
+    expect(updated.drafts).toHaveLength(1);
+    expect(updated.saved.hogaresAfectados).toBe(22);
+
+    const afterRemove = useCase.removeDraft(saved.id);
+    expect(afterRemove).toEqual([]);
+    expect(useCase.listDrafts()).toEqual([]);
   });
 });

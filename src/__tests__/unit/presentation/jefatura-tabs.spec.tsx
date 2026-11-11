@@ -1,257 +1,277 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { IncidenciasCampoTab } from "@/presentation/components/jefatura/IncidenciasCampoTab";
 import { RegistroTacticoTab } from "@/presentation/components/jefatura/RegistroTacticoTab";
 
-describe("IncidenciasCampoTab", () => {
-  it("renders cartographic console, telemetry KPIs, filters and hotspot selection", async () => {
-    const user = userEvent.setup({ delay: null });
-    render(<IncidenciasCampoTab />);
+import {
+  captureCsvDownloads,
+  demoUser,
+  FIXED_NOW,
+  stubClipboard,
+  stubGeolocation,
+} from "./helpers";
 
-    // Check Header & KPIs
+vi.mock("@/infrastructure/container", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/infrastructure/container")>();
+  const testContainer = actual.createTestContainer({ now: new Date("2026-11-10T15:00:00.000Z") });
+  return { ...actual, getContainer: () => testContainer };
+});
+
+describe("IncidenciasCampoTab", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(FIXED_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("hydrates real incidents, filters map & matrix, validates existence and exports GeoJSON", async () => {
+    const user = userEvent.setup({ delay: null });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    stubClipboard(writeText);
+    const { filenames } = captureCsvDownloads();
+    const jefatura = demoUser("jefatura");
+
+    render(<IncidenciasCampoTab currentUser={jefatura} />);
+
     expect(
       screen.getByText("INCIDENCIAS DE CAMPO – MONITOREO GEOESPACIAL Y MAPA DE CALOR"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Incidencias Georreferenciadas")).toBeInTheDocument();
-    expect(screen.getByText("1,428")).toBeInTheDocument();
-    expect(screen.getByText("Focos de Calor / Alto Riesgo")).toBeInTheDocument();
-    expect(screen.getByText("34")).toBeInTheDocument();
 
-    // Map controls
-    const zoomInBtn = screen.getByTitle("Acercar Zoom");
-    await user.click(zoomInBtn);
-    const zoomOutBtn = screen.getByTitle("Alejar Zoom");
-    await user.click(zoomOutBtn);
+    // Real seeded incidents replace hardcoded fake metrics
+    const rows = await screen.findAllByTestId("campo-incident-row");
+    expect(rows).toHaveLength(9);
+    expect(screen.getByTestId("campo-kpi-georef")).toHaveTextContent("4");
+    expect(screen.getByTestId("campo-kpi-pending")).toHaveTextContent("5");
+    expect(screen.queryByText("1,428")).not.toBeInTheDocument();
+    expect(screen.queryByText("INC-2025-00142")).not.toBeInTheDocument();
 
-    const compassBtn = screen.getByTitle("Brújula Norte");
-    await user.click(compassBtn);
+    // Map zoom & layer controls
+    await user.click(screen.getByTitle("Acercar Zoom"));
+    expect(screen.getByText(/Zoom 1\.15x/i)).toBeInTheDocument();
+    await user.click(screen.getByTitle("Alejar Zoom"));
+    await user.click(screen.getByTitle("Centrar Vista"));
+    expect(screen.getByText(/Zoom 1\.00x/i)).toBeInTheDocument();
 
-    const rulerBtn = screen.getByTitle("Medir Distancia Geodésica");
-    await user.click(rulerBtn);
-    await user.click(rulerBtn);
-
-    const fullBtn = screen.getByTitle("Pantalla Completa");
-    await user.click(fullBtn);
-
-    // Map Layers
     await user.click(screen.getByRole("button", { name: /puntos/i }));
-    await user.click(screen.getByRole("button", { name: /ríos/i }));
-    await user.click(screen.getByRole("button", { name: /brigadas gps/i }));
-    await user.click(screen.getByRole("button", { name: /satélite radar/i }));
+    await user.click(screen.getByRole("button", { name: /^pendientes$/i }));
     await user.click(screen.getByRole("button", { name: /mapa de calor/i }));
 
-    // Hotspot Selection in table
-    const searchInput = screen.getByPlaceholderText("Filtrar por cuenca o distrito...");
-    await user.type(searchInput, "El Molino");
-    expect(screen.getAllByText("INC-2025-00142").length).toBeGreaterThan(0);
+    // Search and filters
+    const searchInput = screen.getByPlaceholderText("Buscar código, centro o sector...");
+    await user.type(searchInput, "Catacaos");
+    expect(screen.getAllByTestId("campo-incident-row").length).toBeGreaterThan(0);
     await user.clear(searchInput);
 
-    // Risk Filter
-    const levelSelect = screen.getByRole("combobox");
-    await user.selectOptions(levelSelect, "critical");
-    expect(screen.getAllByText("CRÍTICO").length).toBeGreaterThan(0);
-    await user.selectOptions(levelSelect, "severe");
-    await user.selectOptions(levelSelect, "all");
+    const statusSelect = screen.getByLabelText("Filtrar por estado");
+    await user.selectOptions(statusSelect, "pending");
+    expect(screen.getAllByTestId("campo-incident-row")).toHaveLength(5);
+    await user.selectOptions(statusSelect, "gps");
+    expect(screen.getAllByTestId("campo-incident-row")).toHaveLength(4);
+    await user.selectOptions(statusSelect, "all");
 
-    // Select hotspot row
-    const localizeBtns = screen.getAllByRole("button", { name: /localizar|en foco/i });
-    await user.click(localizeBtns[0] as HTMLElement);
+    const tipoSelect = screen.getByLabelText("Filtrar por tipo de afectación");
+    await user.selectOptions(tipoSelect, "inundacion");
+    await user.selectOptions(tipoSelect, "all");
 
-    // Tactical Inspector Panel controls
-    expect(screen.getByText("DESBORDE INMINENTE (NIVEL 4)")).toBeInTheDocument();
-    expect(screen.getByText("Caudal Registrado")).toBeInTheDocument();
-    const sismateBtn = screen.getByRole("button", { name: /emitir alerta temprana sms/i });
-    await user.click(sismateBtn);
+    // Select an unverified row and verify existence in field
+    const pendingRow = screen
+      .getAllByTestId("campo-incident-row")
+      .find((r) => r.textContent?.includes("Pendiente"));
+    if (!pendingRow) throw new Error("Expected at least one pending incident row");
+    await user.click(within(pendingRow).getByRole("button", { name: /localizar/i }));
 
-    const extraBtn = screen.getByRole("button", { name: /asignar recursos extra/i });
-    await user.click(extraBtn);
+    const validateBtn = screen.getByTestId("campo-validate-btn");
+    await user.click(validateBtn);
 
-    const droneBtn = screen.getByRole("button", { name: /telemetría dron/i });
-    await user.click(droneBtn);
+    await waitFor(() => {
+      expect(screen.getByTestId("campo-kpi-pending")).toHaveTextContent("4");
+    });
 
-    // Hotspot pins on map
-    const pins = screen.getAllByRole("button").filter((b) => b.getAttribute("aria-label")?.includes("Foco"));
-    if (pins[0]) {
-      await user.click(pins[0]);
-    }
+    // Copy summary and export real GeoJSON
+    await user.click(screen.getByRole("button", { name: /copiar ficha/i }));
+    expect(writeText).toHaveBeenCalledTimes(1);
 
-    // Top action buttons
-    const exportBtn = screen.getByRole("button", { name: /exportar geojson \/ kml/i });
-    await user.click(exportBtn);
+    await user.click(screen.getByTestId("export-geojson-btn"));
+    expect(filenames).toEqual(["incidencias-campo-2026-11-10.geojson"]);
+  });
 
-    const layersFilterBtn = screen.getByRole("button", { name: /filtro de capas tácticas/i });
-    await user.click(layersFilterBtn);
+  it("handles empty GeoJSON exports, map pin selection, and navigation to Registro Táctico", async () => {
+    const user = userEvent.setup({ delay: null });
+    const onRegisterAtCentro = vi.fn();
+    const { filenames } = captureCsvDownloads();
 
-    const dispatchBtn = screen.getByRole("button", { name: /despachar brigada a punto crítico/i });
-    await user.click(dispatchBtn);
+    render(
+      <IncidenciasCampoTab
+        currentUser={demoUser("jefatura")}
+        onRegisterAtCentro={onRegisterAtCentro}
+      />,
+    );
+
+    expect(await screen.findAllByTestId("campo-incident-row")).toHaveLength(9);
+
+    const mapPins = screen.getAllByRole("button", { name: /^Foco / });
+    expect(mapPins.length).toBeGreaterThan(0);
+    await user.click(mapPins[mapPins.length - 1] as HTMLElement);
+
+    await user.click(screen.getByRole("button", { name: /nuevo registro en campo/i }));
+    expect(onRegisterAtCentro).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole("button", { name: /solo pendientes/i }));
+    await user.click(screen.getByRole("button", { name: /solo pendientes/i }));
+
+    await user.type(screen.getByPlaceholderText("Buscar código, centro o sector..."), "ZZZ-NONE");
+    await waitFor(() => {
+      expect(screen.queryAllByTestId("campo-incident-row")).toHaveLength(0);
+    });
+    await user.click(screen.getByTestId("export-geojson-btn"));
+    expect(filenames).toHaveLength(0);
+    expect(
+      await screen.findByText(
+        "No hay incidencias con coordenadas GPS en la vista para exportar GeoJSON.",
+      ),
+    ).toBeInTheDocument();
   });
 });
 
 describe("RegistroTacticoTab", () => {
   beforeEach(() => {
-    vi.stubGlobal("navigator", {
-      clipboard: {
-        writeText: vi.fn().mockResolvedValue(undefined),
-      },
-    });
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(FIXED_NOW);
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  it("handles header controls, stepper navigation and phenomenon selection", async () => {
+  it("handles real GPS acquisition, local drafts in cache, validation errors and incident creation", async () => {
     const user = userEvent.setup({ delay: null });
-    render(<RegistroTacticoTab />);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    stubClipboard(writeText);
+    stubGeolocation((success) => {
+      success({
+        coords: { latitude: -5.2654, longitude: -80.6782, accuracy: 8 },
+      } as GeolocationPosition);
+    });
 
-    // Header elements
+    const onCreated = vi.fn();
+    const jefatura = demoUser("jefatura");
+    render(<RegistroTacticoTab currentUser={jefatura} onIncidentCreated={onCreated} />);
+
     expect(screen.getByText("REGISTRO TÁCTICO DE INCIDENCIA DE CAMPO")).toBeInTheDocument();
-    expect(screen.getByText(/PROTOCOLO EDAN PERÚ/i)).toBeInTheDocument();
-
-    // Audit code placeholder for unsaved draft
-    expect(screen.getByText("Código de auditoría")).toBeInTheDocument();
     expect(screen.getByText("Pendiente de asignación")).toBeInTheDocument();
+    expect(screen.getByTestId("gps-value")).toHaveTextContent("Sin coordenadas registradas");
+    expect(screen.getByTestId("test-load-draft")).toHaveTextContent("Borradores locales (0)");
 
-    // Load draft button
-    const draftBtn = screen.getByTestId("test-load-draft");
-    await user.click(draftBtn);
-    expect(screen.getByText(/Borrador guardado en el cache local seguro/i)).toBeInTheDocument();
+    // Validation blocks incomplete submit before choosing a centro poblado
+    await user.click(screen.getByTestId("submit-incident-btn"));
+    expect(await screen.findByTestId("form-errors")).toHaveTextContent(
+      "Selecciona un centro poblado.",
+    );
 
-    // Steps Navigation
-    await user.click(screen.getByTestId("test-step-1"));
-    await user.click(screen.getByTestId("test-step-3"));
-    await user.click(screen.getByTestId("test-step-4"));
-    await user.click(screen.getByTestId("test-step-2"));
+    // Wait for real CentroPoblado catalog to load
+    const centroSelect = screen.getByTestId("centro-select");
+    await waitFor(() => {
+      expect(within(centroSelect).getAllByRole("option").length).toBeGreaterThan(1);
+    });
 
-    // Channel select
-    const channelSelect = screen.getByTestId("channel-select");
-    await user.selectOptions(channelSelect, "radio");
-    await user.selectOptions(channelSelect, "movil");
-    await user.selectOptions(channelSelect, "fibra");
-    await user.selectOptions(channelSelect, "bgan");
+    await user.selectOptions(screen.getByTestId("region-select"), "Piura / Norte");
+    await user.selectOptions(screen.getByTestId("sector-select"), "Bajo Piura");
+    await user.selectOptions(centroSelect, "c-catacaos");
 
-    // Resynchronize RTC
-    const rtcBtn = screen.getByRole("button", { name: /resincronizar rtc/i });
-    await user.click(rtcBtn);
+    // 24h duplicate warning fires against seeded records
+    expect(await screen.findByTestId("duplicate-alert")).toBeInTheDocument();
 
-    // Phenomenon choices
-    const phenomena = ["fluvial", "huayco", "colapso", "lluvia", "quebrada", "oleaje"] as const;
-    for (const p of phenomena) {
-      await user.click(screen.getByTestId(`phenomenon-${p}`));
-    }
-  });
+    // Real GPS read populates coordinates and accuracy
+    await user.click(screen.getByTestId("gps-btn"));
+    expect(screen.getByTestId("gps-value")).toHaveTextContent("-5.26540, -80.67820 (±8m)");
 
-  it("handles location cascades, map layers, EDAN counters, dispatch toggles and action triggers", async () => {
+    // Modify affectation, EDAN counters, transitability, vital services and note
+    await user.click(screen.getByTestId("phenomenon-huaico"));
+    await user.click(screen.getByTestId("necesidad-agua_potable"));
+    const hogaresInput = screen.getByTestId("counter-hogares-input");
+    fireEvent.change(hogaresInput, { target: { value: "24" } });
+    await user.click(screen.getByTestId("transit-bloqueada"));
+    await user.click(screen.getByTestId("service-sinAgua"));
+    await user.click(screen.getByRole("button", { name: /insertar resumen en nota/i }));
+    expect(screen.getByTestId("nota-referencia-input")).toHaveValue(
+      "Acceso: Ruta Bloqueada. Servicios afectados: Sin Agua Potable.",
+    );
+
+    // Persist local draft via LocalCache, reset form, then reload draft back
+    await user.click(screen.getByTestId("save-draft-btn"));
+    expect(screen.getByTestId("test-load-draft")).toHaveTextContent("Borradores locales (1)");
+
+    await user.click(screen.getByTestId("reset-form-btn"));
+    expect(screen.getByTestId("centro-select")).toHaveValue("");
+    expect(screen.getByTestId("gps-value")).toHaveTextContent("Sin coordenadas registradas");
+
+    await user.click(screen.getByTestId("test-load-draft"));
+    expect(await screen.findByTestId("drafts-panel")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cargar" }));
+    expect(screen.getByTestId("centro-select")).toHaveValue("c-catacaos");
+    expect(screen.getByTestId("counter-hogares-input")).toHaveValue(24);
+
+    // Register real incident and verify backend-assigned INC code + copy + draft cleanup
+    await user.click(screen.getByTestId("submit-incident-btn"));
+    const auditCode = await screen.findByTestId("codigo-auditoria");
+    expect(auditCode).toHaveTextContent(/INC-\d{4}-\d{5}/);
+    expect(screen.getByTestId("test-load-draft")).toHaveTextContent("Borradores locales (0)");
+    expect(onCreated).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByTestId("copy-codigo"));
+    expect(writeText).toHaveBeenCalledWith(auditCode.textContent);
+  }, 15_000);
+
+  it("handles GPS denial, manual WGS84 coords, map layers, and deleting local drafts", async () => {
     const user = userEvent.setup({ delay: null });
-    render(<RegistroTacticoTab />);
+    stubGeolocation((_success, error) => {
+      error?.({
+        code: 1,
+        message: "Permiso denegado",
+        PERMISSION_DENIED: 1,
+        POSITION_UNAVAILABLE: 2,
+        TIMEOUT: 3,
+      } as GeolocationPositionError);
+    });
 
-    // GPS Device button
-    const gpsBtn = screen.getByTestId("gps-btn");
-    await user.click(gpsBtn);
+    render(<RegistroTacticoTab currentUser={demoUser("jefatura")} />);
 
-    // Location Cascades
-    const regionSelect = screen.getByTestId("region-select");
-    await user.selectOptions(regionSelect, "Tumbes");
-    await user.selectOptions(regionSelect, "Lambayeque");
-    await user.selectOptions(regionSelect, "La Libertad");
-    await user.selectOptions(regionSelect, "Piura");
+    const centroSelect = screen.getByTestId("centro-select");
+    await waitFor(() => {
+      expect(within(centroSelect).getAllByRole("option").length).toBeGreaterThan(1);
+    });
 
-    const provSelect = screen.getByTestId("provincia-select");
-    await user.selectOptions(provSelect, "Morropón");
-    await user.selectOptions(provSelect, "Piura");
+    await user.click(screen.getByTestId("gps-btn"));
+    expect(
+      await screen.findByText("No diste permiso para usar la ubicación. Actívala en tu navegador."),
+    ).toBeInTheDocument();
 
-    const distSelect = screen.getByTestId("distrito-select");
-    await user.selectOptions(distSelect, "Cura Mori");
-    await user.selectOptions(distSelect, "Catacaos");
+    await user.type(screen.getByTestId("lat-input"), "-5.1945");
+    await user.type(screen.getByTestId("lng-input"), "-80.6328");
+    expect(screen.getByTestId("gps-value")).toHaveTextContent("-5.19450, -80.63280");
 
-    const caserioSelect = screen.getByTestId("caserio-select");
-    await user.selectOptions(caserioSelect, "Monte Sullón");
+    await user.click(screen.getByRole("button", { name: "Topografía" }));
+    await user.click(screen.getByRole("button", { name: "Cuencas" }));
+    await user.click(screen.getByRole("button", { name: "Satélite" }));
+    await user.click(screen.getByTestId("counter-hogares-inc"));
+    await user.click(screen.getByTestId("counter-hogares-dec"));
+    expect(screen.getByTestId("counter-hogares-input")).toHaveValue(4);
 
-    // Coordinates inputs
-    const latInput = screen.getByTestId("lat-input");
-    fireEvent.change(latInput, { target: { value: "-5.2700" } });
-    const lngInput = screen.getByTestId("lng-input");
-    fireEvent.change(lngInput, { target: { value: "-80.6800" } });
+    await user.clear(screen.getByTestId("lat-input"));
+    await user.clear(screen.getByTestId("lng-input"));
+    expect(screen.getByTestId("gps-value")).toHaveTextContent("Sin coordenadas registradas");
 
-    // Mini map layer toggles
-    await user.click(screen.getByRole("button", { name: /satélite/i }));
-    await user.click(screen.getByRole("button", { name: /topografía/i }));
-    await user.click(screen.getByRole("button", { name: /inundación 2017/i }));
-
-    // Counters: Familias, Damnificados, Menores, Adultos mayores
-    const incFamBtn = screen.getByTestId("counter-familias-inc");
-    await user.click(incFamBtn);
-    const decFamBtn = screen.getByTestId("counter-familias-dec");
-    await user.click(decFamBtn);
-    const inputFam = screen.getByTestId("counter-familias-input");
-    fireEvent.change(inputFam, { target: { value: "120" } });
-
-    const decBtns = screen.getAllByRole("button", { name: "-" });
-    const incBtns = screen.getAllByRole("button", { name: "+" });
-    for (const b of incBtns) {
-      await user.click(b);
-    }
-    for (const b of decBtns) {
-      await user.click(b);
-    }
-
-    // Transitability
-    const transitOptions = ["4x4", "aerea", "bloqueada", "aislado"] as const;
-    for (const t of transitOptions) {
-      await user.click(screen.getByTestId(`transit-${t}`));
-    }
-
-    // Services checklist
-    await user.click(screen.getByTestId("service-agua"));
-    await user.click(screen.getByRole("button", { name: /corte fluido eléctrico/i }));
-    await user.click(screen.getByRole("button", { name: /sin cobertura móvil/i }));
-    await user.click(screen.getByRole("button", { name: /colapso alcantarillado/i }));
-    await user.click(screen.getByRole("button", { name: /centro salud inundado/i }));
-
-    // Delete uploaded file
-    const deleteFileBtns = screen.getAllByTitle("Eliminar archivo");
-    if (deleteFileBtns[0]) {
-      await user.click(deleteFileBtns[0]);
-    }
-
-    // Drone stream toggle
-    const droneBtn = screen.getByTestId("drone-stream-btn");
-    await user.click(droneBtn);
-    await user.click(droneBtn);
-
-    // Brigade dispatch checkbox & units
-    const brigadeCheckbox = screen.getByTestId("brigade-dispatch-checkbox");
-    await user.click(brigadeCheckbox);
-    await user.click(brigadeCheckbox);
-
-    const bomberosBtn = screen.getByRole("button", { name: /cía\. bomberos piura n° 25/i });
-    await user.click(bomberosBtn);
-    const ejercitoBtn = screen.getByRole("button", { name: /batallón de ingeniería ep n° 51/i });
-    await user.click(ejercitoBtn);
-
-    // Requested equipment checkboxes
-    const equipmentCheckboxes = screen.getAllByRole("checkbox");
-    for (const eq of equipmentCheckboxes) {
-      await user.click(eq);
-      await user.click(eq);
-    }
-
-    // Execution Buttons
-    const registerBtn = screen.getByTestId("submit-incident-btn");
-    await user.click(registerBtn);
-    expect(screen.getByText(/Incidencia registrada en la red COEN\/INDECI/i)).toBeInTheDocument();
-
-    const saveDraftBtn = screen.getByTestId("save-draft-btn");
-    await user.click(saveDraftBtn);
-
-    const sismateBtn = screen.getByTestId("sismate-alert-btn");
-    await user.click(sismateBtn);
-    expect(screen.getByText(/¡ALERTA SISMATE ENVIADA!/i)).toBeInTheDocument();
-
-    // Close notification alert
-    const closeNotificationBtn = screen.getByRole("button", { name: "✕" });
-    await user.click(closeNotificationBtn);
+    await user.click(screen.getByTestId("save-draft-btn"));
+    expect(screen.getByTestId("test-load-draft")).toHaveTextContent("Borradores locales (1)");
+    await user.click(screen.getByTestId("test-load-draft"));
+    await user.click(await screen.findByLabelText("Eliminar borrador"));
+    expect(screen.getByTestId("test-load-draft")).toHaveTextContent("Borradores locales (0)");
   }, 15_000);
 });

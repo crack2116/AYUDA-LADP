@@ -396,6 +396,16 @@ describe("local auth repository", () => {
       rol: "jefatura",
     });
   });
+
+  it("lists all demo user profiles without leaking shared mutable arrays", async () => {
+    const repository = new LocalAuthRepository();
+    const list = await repository.listUsers();
+
+    expect(list).toHaveLength(DEMO_USERS.length);
+    list[0]?.centroPobladoIds.push("mutated");
+    const fresh = await repository.listUsers();
+    expect(fresh[0]?.centroPobladoIds).not.toContain("mutated");
+  });
 });
 
 describe("local cache", () => {

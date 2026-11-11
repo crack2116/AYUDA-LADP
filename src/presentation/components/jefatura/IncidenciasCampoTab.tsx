@@ -1,147 +1,282 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle,
+  CheckCircle2,
   Compass,
+  Copy,
+  Download,
   Droplets,
   Flame,
   Layers,
   MapPin,
-  Maximize2,
   Minus,
-  Navigation,
-  PhoneCall,
   Plus,
-  Radio,
-  RefreshCw,
-  Ruler,
-  Satellite,
   Search,
-  Shield,
-  ShieldAlert,
+  ShieldCheck,
   SlidersHorizontal,
-  Truck,
   Users,
-  Video,
-  Waves,
 } from "lucide-react";
 
-interface HotspotRecord {
-  id: string;
-  code: string;
-  basin: string;
-  district: string;
-  coords: string;
-  phenomenon: string;
-  riskLevel: "critical" | "severe" | "moderate";
-  flowMetric: string;
-  flowTrend: string;
-  evacuationPct: number;
-  assignedBrigade: string;
-  lastReport: string;
+import type { IncidenciaConCentro } from "@/application/ports/incidencia.repository";
+import type { CentroPoblado } from "@/domain/entities/centro-poblado";
+import {
+  TIPO_AFECTACION_OPTIONS,
+  labelForNecesidad,
+  labelForTipoAfectacion,
+} from "@/domain/entities/incidencia";
+import type { UserProfile } from "@/domain/entities/user";
+import { toLimaDateKey } from "@/domain/lib/date";
+import { parseGpsCoords } from "@/domain/lib/gps";
+import { can } from "@/domain/permissions/rbac";
+import {
+  buildIncidenciasGeoJson,
+  projectPeruCoordsToPercent,
+} from "@/domain/services/territorial-analysis";
+import { getContainer } from "@/infrastructure/container";
+import { downloadTextFile } from "@/presentation/lib/download";
+import { formatCount, formatDateKey } from "@/presentation/lib/format";
+
+export interface IncidenciasCampoTabProps {
+  rows?: readonly IncidenciaConCentro[];
+  centros?: readonly CentroPoblado[];
+  users?: readonly UserProfile[];
+  currentUser?: UserProfile | null;
+  onValidateIncidencia?: (incidenciaId: string) => Promise<boolean>;
+  onRegisterAtCentro?: (centroId: string) => void;
 }
 
-const HOTSPOTS_DATA: readonly HotspotRecord[] = [
-  {
-    id: "hot-01",
-    code: "INC-2025-00142",
-    basin: "Río Piura - CP El Molino",
-    district: "Catacaos, Piura",
-    coords: "-5.194, -80.632",
-    phenomenon: "Inundación Fluvial",
-    riskLevel: "critical",
-    flowMetric: "1,840 m³/s",
-    flowTrend: "+48 m³/s/h",
-    evacuationPct: 65,
-    assignedBrigade: "Patrulla Bravo-3",
-    lastReport: "Hace 42s",
-  },
-  {
-    id: "hot-02",
-    code: "INC-2025-00141",
-    basin: "Quebrada Batanes - Chulucanas",
-    district: "Morropón, Piura",
-    coords: "-5.097, -80.163",
-    phenomenon: "Huayco Activo",
-    riskLevel: "severe",
-    flowMetric: "Densidad: 1.8 t/m³",
-    flowTrend: "Corte vial km 42",
-    evacuationPct: 88,
-    assignedBrigade: "Brigada Mixta EP-22",
-    lastReport: "Hace 3m",
-  },
-  {
-    id: "hot-03",
-    code: "INC-2025-00139",
-    basin: "Quebrada San Ildefonso",
-    district: "El Porvenir, Trujillo",
-    coords: "-8.081, -78.988",
-    phenomenon: "Alerta de Dique",
-    riskLevel: "severe",
-    flowMetric: "Capacidad: 84%",
-    flowTrend: "Desarenador saturado",
-    evacuationPct: 40,
-    assignedBrigade: "Defensa Civil Trujillo",
-    lastReport: "Hace 7m",
-  },
-  {
-    id: "hot-04",
-    code: "INC-2025-00138",
-    basin: "Litoral Puerto Pizarro - Manglares",
-    district: "Tumbes",
-    coords: "-3.498, -80.392",
-    phenomenon: "Oleaje & Marea",
-    riskLevel: "moderate",
-    flowMetric: "Anomalía: +1.4m",
-    flowTrend: "Marea viva vespertina",
-    evacuationPct: 100,
-    assignedBrigade: "Capitanía de Puerto",
-    lastReport: "Hace 14m",
-  },
-];
+type LayerMode = "calor" | "puntos" | "pendientes";
 
-export function IncidenciasCampoTab() {
-  const [activeLayer, setActiveLayer] = useState<"calor" | "puntos" | "rios" | "brigadas" | "radar">("calor");
-  const [selectedHotspot, setSelectedHotspot] = useState<HotspotRecord>(HOTSPOTS_DATA[0] as HotspotRecord);
+export function IncidenciasCampoTab({
+  rows: rowsProp,
+  users: usersProp,
+  currentUser: currentUserProp,
+  onValidateIncidencia,
+  onRegisterAtCentro,
+}: IncidenciasCampoTabProps) {
+  const [loadedRows, setLoadedRows] = useState<IncidenciaConCentro[]>([]);
+  const [loadedUsers, setLoadedUsers] = useState<UserProfile[]>([]);
+  const [sessionUser, setSessionUser] = useState<UserProfile | null>(null);
+
+  const [activeLayer, setActiveLayer] = useState<LayerMode>("calor");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filterSearch, setFilterSearch] = useState("");
-  const [selectedRiskFilter, setSelectedRiskFilter] = useState("all");
-  const [zoomLevel, setZoomLevel] = useState(9.4);
-  const [bufferDistance, setBufferDistance] = useState("5.0 km");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "verified" | "gps">("all");
+  const [tipoFilter, setTipoFilter] = useState("all");
+  const [zoomScale, setZoomScale] = useState(1);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
 
-  const filteredHotspots = useMemo(() => {
-    return HOTSPOTS_DATA.filter((item) => {
+  const resolvedUser = currentUserProp ?? sessionUser;
+  const users = useMemo(
+    () => (usersProp && usersProp.length > 0 ? usersProp : loadedUsers),
+    [usersProp, loadedUsers],
+  );
+  const baseRows = useMemo(
+    () => (rowsProp !== undefined ? rowsProp : loadedRows),
+    [rowsProp, loadedRows],
+  );
+
+  // Hydrate independently when rendered outside JefaturaDashboardView (e.g. unit tests)
+  useEffect(() => {
+    let active = true;
+    const container = getContainer();
+
+    const hydrate = async () => {
+      const restored =
+        currentUserProp === undefined ? await container.authRepository.restoreSession() : null;
+      if (active && currentUserProp === undefined) {
+        setSessionUser(restored);
+      }
+
+      if (rowsProp === undefined) {
+        const [incidencias, centros] = await Promise.all([
+          container.incidenciaRepository.listAll(),
+          container.centroPobladoRepository.listAll(),
+        ]);
+        const centrosMap = new Map(centros.map((c) => [c.id, c]));
+        const joined: IncidenciaConCentro[] = [];
+        for (const incidencia of incidencias) {
+          const centroPoblado = centrosMap.get(incidencia.centroPobladoId);
+          if (centroPoblado) joined.push({ incidencia, centroPoblado });
+        }
+        joined.sort((a, b) => Date.parse(b.incidencia.createdAt) - Date.parse(a.incidencia.createdAt));
+        if (active) setLoadedRows(joined);
+      }
+
+      if (usersProp === undefined) {
+        const profileList = await container.authRepository.listUsers();
+        if (active) setLoadedUsers(profileList);
+      }
+    };
+
+    void hydrate();
+    return () => {
+      active = false;
+    };
+  }, [currentUserProp, rowsProp, usersProp]);
+
+  const usersById = useMemo(
+    () => new Map(users.map((profile) => [profile.id, profile])),
+    [users],
+  );
+
+  const filteredRows = useMemo(() => {
+    const query = filterSearch.trim().toLowerCase();
+    return baseRows.filter(({ incidencia, centroPoblado }) => {
       if (
-        filterSearch &&
-        !item.code.toLowerCase().includes(filterSearch.toLowerCase()) &&
-        !item.basin.toLowerCase().includes(filterSearch.toLowerCase()) &&
-        !item.district.toLowerCase().includes(filterSearch.toLowerCase())
+        query &&
+        !incidencia.codigoAuditoria.toLowerCase().includes(query) &&
+        !centroPoblado.nombre.toLowerCase().includes(query) &&
+        !centroPoblado.sector.toLowerCase().includes(query) &&
+        !centroPoblado.region.toLowerCase().includes(query)
       ) {
         return false;
       }
-      if (selectedRiskFilter === "critical" && item.riskLevel !== "critical") return false;
-      if (selectedRiskFilter === "severe" && item.riskLevel !== "severe") return false;
+      if (statusFilter === "pending" && incidencia.verificado) return false;
+      if (statusFilter === "verified" && !incidencia.verificado) return false;
+      if (statusFilter === "gps" && !parseGpsCoords(incidencia.gpsCoords)) return false;
+      if (tipoFilter !== "all" && incidencia.tipoAfectacion !== tipoFilter) return false;
       return true;
     });
-  }, [filterSearch, selectedRiskFilter]);
+  }, [baseRows, filterSearch, statusFilter, tipoFilter]);
+
+  const mapMarkers = useMemo(() => {
+    return filteredRows
+      .filter((row) => (activeLayer === "pendientes" ? !row.incidencia.verificado : true))
+      .map((row) => {
+        const parsed = parseGpsCoords(row.incidencia.gpsCoords);
+        if (!parsed) return null;
+        return {
+          row,
+          parsed,
+          point: projectPeruCoordsToPercent(parsed),
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+  }, [activeLayer, filteredRows]);
+
+  const selectedRow = useMemo(() => {
+    if (selectedId) {
+      const match = filteredRows.find((r) => r.incidencia.id === selectedId);
+      if (match) return match;
+    }
+    return filteredRows[0] ?? null;
+  }, [filteredRows, selectedId]);
+
+  const stats = useMemo(() => {
+    const geoCount = baseRows.filter((r) => parseGpsCoords(r.incidencia.gpsCoords) !== null).length;
+    const verifiedCount = baseRows.filter((r) => r.incidencia.verificado).length;
+    const pendingCount = baseRows.length - verifiedCount;
+    const sectores = [...new Set(baseRows.map((r) => r.centroPoblado.sector))];
+    const regiones = [...new Set(baseRows.map((r) => r.centroPoblado.region))];
+    const totalHogares = baseRows.reduce((sum, r) => sum + r.incidencia.hogaresAfectados, 0);
+    const maxRow =
+      baseRows.length > 0
+        ? [...baseRows].sort(
+            (a, b) => b.incidencia.hogaresAfectados - a.incidencia.hogaresAfectados,
+          )[0]
+        : null;
+    const withoutGpsFiltered = filteredRows.filter(
+      (r) => parseGpsCoords(r.incidencia.gpsCoords) === null,
+    ).length;
+
+    return {
+      geoCount,
+      geoPct: baseRows.length === 0 ? 0 : Math.round((geoCount / baseRows.length) * 100),
+      verifiedCount,
+      pendingCount,
+      sectores,
+      regionCount: regiones.length,
+      totalHogares,
+      maxRow,
+      withoutGpsFiltered,
+    };
+  }, [baseRows, filteredRows]);
+
+  const maxHogaresInMap = useMemo(() => {
+    return Math.max(1, ...mapMarkers.map((m) => m.row.incidencia.hogaresAfectados));
+  }, [mapMarkers]);
+
+  const handleExportGeoJson = () => {
+    const geoJson = buildIncidenciasGeoJson(filteredRows);
+    if (geoJson.features.length === 0) {
+      setStatusMessage("No hay incidencias con coordenadas GPS en la vista para exportar GeoJSON.");
+      return;
+    }
+    const filename = `incidencias-campo-${toLimaDateKey(new Date())}.geojson`;
+    downloadTextFile(filename, JSON.stringify(geoJson, null, 2), "application/geo+json;charset=utf-8");
+    setStatusMessage(
+      `GeoJSON exportado (${geoJson.features.length} ${geoJson.features.length === 1 ? "punto" : "puntos"}).`,
+    );
+  };
+
+  const handleValidateSelected = async () => {
+    if (!selectedRow || selectedRow.incidencia.verificado) return;
+    setValidating(true);
+    let verifiedOk = false;
+
+    if (onValidateIncidencia) {
+      verifiedOk = await onValidateIncidencia(selectedRow.incidencia.id);
+    } else if (resolvedUser) {
+      const res = await getContainer().useCases.validateExistence.execute({
+        incidenciaId: selectedRow.incidencia.id,
+        user: resolvedUser,
+      });
+      if (res.ok) {
+        verifiedOk = true;
+        setLoadedRows((prev) =>
+          prev.map((item) =>
+            item.incidencia.id === res.value.id
+              ? { ...item, incidencia: res.value }
+              : item,
+          ),
+        );
+      } else {
+        setStatusMessage(res.error.message);
+      }
+    }
+
+    setValidating(false);
+    if (verifiedOk) {
+      setStatusMessage(`Incidencia ${selectedRow.incidencia.codigoAuditoria} validada en campo.`);
+    }
+  };
+
+  const handleCopyInspector = async () => {
+    if (!selectedRow) return;
+    const text = `${selectedRow.incidencia.codigoAuditoria} · ${selectedRow.centroPoblado.nombre} (${selectedRow.centroPoblado.region}) · ${selectedRow.incidencia.gpsCoords ?? "Sin GPS"}`;
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        setStatusMessage(`Datos de ${selectedRow.incidencia.codigoAuditoria} copiados al portapapeles.`);
+        return;
+      } catch {
+        // Fallback message below
+      }
+    }
+    setStatusMessage("El portapapeles no está disponible en este navegador.");
+  };
+
+  const canValidate =
+    selectedRow !== null &&
+    !selectedRow.incidencia.verificado &&
+    (resolvedUser ? can(resolvedUser, "incidencia:validate") : false);
 
   return (
     <div className="flex flex-col gap-6">
-      {/* 1. ENCABEZADO DE PÁGINA & CONTROL SUPERIOR */}
+      {/* Header */}
       <section className="flex flex-col gap-3 rounded-xl bg-white p-6 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-          <div className="flex max-w-4xl flex-col gap-1.5 min-w-0">
+          <div className="flex min-w-0 max-w-4xl flex-col gap-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-0.5 text-xs font-bold uppercase text-ladp-orange">
-                <span className="h-1.5 w-1.5 rounded-full bg-ladp-orange animate-pulse" />
-                Supervisión FEN 2026
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-3 py-0.5 text-xs font-bold text-brand-blue">
-                <Satellite className="h-3.5 w-3.5" />
-                Red Nacional Geoespacial
+                <span className="h-1.5 w-1.5 rounded-full bg-ladp-orange" />
+                Monitoreo Territorial Real
               </span>
               <span className="rounded-lg bg-brand-mist px-2.5 py-0.5 font-mono text-xs font-semibold text-slate-600">
-                WGS84 / UTM ZONA 17S
+                WGS84 / EPSG:4326
               </span>
             </div>
 
@@ -149,79 +284,98 @@ export function IncidenciasCampoTab() {
               INCIDENCIAS DE CAMPO – MONITOREO GEOESPACIAL Y MAPA DE CALOR
             </h2>
 
-            <p className="text-xs font-medium text-slate-500 leading-relaxed">
-              Visualización geoespacial en tiempo real de reportes de afectación, puntos críticos por desborde fluvial y concentración de calor hidrometeorológico por impacto del Fenómeno El Niño 2026.
+            <p className="text-xs font-medium leading-relaxed text-slate-500">
+              Ubicación de reportes activos con coordenadas registradas en campo, distribución de
+              hogares afectados por sector y validación directa de incidencias pendientes.
             </p>
           </div>
 
-          {/* Acciones de Cabecera */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => window.print()}
+              data-testid="export-geojson-btn"
+              onClick={handleExportGeoJson}
               className="inline-flex items-center gap-1.5 rounded-lg bg-brand-mist px-3 py-2 text-xs font-bold text-brand-blue transition-colors hover:bg-brand-soft"
             >
-              <Navigation className="h-4 w-4" />
-              <span>Exportar GeoJSON / KML</span>
+              <Download className="h-4 w-4" />
+              <span>Exportar GeoJSON</span>
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-mist px-3 py-2 text-xs font-bold text-brand-ink transition-colors hover:bg-brand-soft"
+              onClick={() =>
+                setStatusFilter((prev) => (prev === "pending" ? "all" : "pending"))
+              }
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors ${
+                statusFilter === "pending"
+                  ? "bg-amber-100 text-ladp-orange"
+                  : "bg-brand-mist text-brand-ink hover:bg-brand-soft"
+              }`}
             >
               <Layers className="h-4 w-4" />
-              <span>Filtro de Capas Tácticas</span>
+              <span>Solo Pendientes ({stats.pendingCount})</span>
             </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-deep px-3 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-brand-blue"
-            >
-              <ShieldAlert className="h-4 w-4" />
-              <span>+ Despachar Brigada a Punto Crítico</span>
-            </button>
+            {onRegisterAtCentro ? (
+              <button
+                type="button"
+                onClick={() => onRegisterAtCentro(selectedRow?.centroPoblado.id ?? "")}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-deep px-3 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-brand-blue"
+              >
+                <MapPin className="h-4 w-4" />
+                <span>Nuevo Registro en Campo</span>
+              </button>
+            ) : null}
           </div>
         </div>
 
-        {/* Metadatos de Red y Sensores */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5 rounded-lg bg-brand-mist px-2.5 py-1">
               <Flame className="h-3.5 w-3.5 text-ladp-orange" />
-              <span className="font-bold text-brand-ink">CAPA ACTIVA:</span>
-              <span>Mapa de Calor Hidrotérmico (KDE 1.2km)</span>
+              <span className="font-bold text-brand-ink">VISTA ACTIVA:</span>
+              <span>
+                {activeLayer === "calor"
+                  ? "Concentración por hogares y puntos GPS"
+                  : activeLayer === "puntos"
+                    ? "Marcadores GPS georreferenciados"
+                    : "Incidencias pendientes con GPS"}
+              </span>
             </div>
             <div className="flex items-center gap-1.5 rounded-lg bg-brand-mist px-2.5 py-1">
-              <Radio className="h-3.5 w-3.5 text-brand-blue" />
-              <span className="font-bold text-brand-ink">SENSORES COEN / INDECI:</span>
-              <span>412 Estaciones Telemetrizadas</span>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-lg bg-brand-mist px-2.5 py-1">
-              <RefreshCw className="h-3.5 w-3.5 animate-spin text-brand-blue" />
-              <span className="font-bold text-brand-ink">ACTUALIZACIÓN CONTINUA:</span>
-              <span className="font-bold text-ladp-orange">Hace 42 seg</span>
+              <MapPin className="h-3.5 w-3.5 text-brand-blue" />
+              <span className="font-bold text-brand-ink">GEORREFERENCIADOS:</span>
+              <span>
+                {stats.geoCount} de {baseRows.length} reportes
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-2 font-mono text-[11px] text-slate-500">
-            <span className="font-bold text-brand-positive">LATENCIA: 124ms</span>
-          </div>
+          {statusMessage ? (
+            <span role="status" className="font-semibold text-brand-blue">
+              {statusMessage}
+            </span>
+          ) : null}
         </div>
       </section>
 
-      {/* 2. TELEMETRÍA RÁPIDA (KPIS COMPACTOS DE CAMPO) */}
+      {/* 4 Real KPI Cards */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {/* KPI 1 */}
         <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
           <div className="flex flex-col">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
               Incidencias Georreferenciadas
             </span>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-bold tracking-tight text-brand-ink sm:text-3xl">
-                1,428
+              <span
+                data-testid="campo-kpi-georef"
+                className="text-2xl font-bold tracking-tight text-brand-ink sm:text-3xl"
+              >
+                {formatCount(stats.geoCount)}
               </span>
-              <span className="text-xs font-bold text-brand-blue">94% DGPS</span>
+              <span className="text-xs font-bold text-brand-blue">
+                {stats.geoPct}% con GPS
+              </span>
             </div>
-            <span className="mt-0.5 text-[11px] text-slate-500 font-medium">
-              Validación submétrica satelital
+            <span className="mt-0.5 text-[11px] font-medium text-slate-500">
+              Sobre {formatCount(baseRows.length)} reportes visibles
             </span>
           </div>
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-blue">
@@ -229,66 +383,70 @@ export function IncidenciasCampoTab() {
           </div>
         </div>
 
-        {/* KPI 2 */}
         <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
           <div className="flex flex-col">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-brand-negative">
-              Focos de Calor / Alto Riesgo
+            <span className="text-[11px] font-bold uppercase tracking-wider text-ladp-orange">
+              Pendientes de Verificación
             </span>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-bold tracking-tight text-brand-negative sm:text-3xl">
-                34
+              <span
+                data-testid="campo-kpi-pending"
+                className="text-2xl font-bold tracking-tight text-brand-ink sm:text-3xl"
+              >
+                {formatCount(stats.pendingCount)}
               </span>
-              <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-brand-negative">
-                Nivel Rojo
-              </span>
-            </div>
-            <span className="mt-0.5 text-[11px] text-slate-500 font-medium">
-              +4 focos en últimas 2 horas
-            </span>
-          </div>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-brand-negative">
-            <AlertTriangle className="h-6 w-6" />
-          </div>
-        </div>
-
-        {/* KPI 3 */}
-        <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
-          <div className="flex flex-col">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Cuencas Hidrográficas
-            </span>
-            <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-bold tracking-tight text-brand-ink sm:text-3xl">
-                12
-              </span>
-              <span className="text-xs font-bold text-ladp-orange">
-                Desborde Inminente
+              <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-brand-positive">
+                {formatCount(stats.verifiedCount)} verificadas
               </span>
             </div>
-            <span className="mt-0.5 text-[11px] text-slate-500 font-medium">
-              Ríos Piura, Tumbes, La Leche, Moche
+            <span className="mt-0.5 text-[11px] font-medium text-slate-500">
+              Confirmación de existencia en campo
             </span>
           </div>
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-ladp-orange">
+            <ShieldCheck className="h-6 w-6" />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
+          <div className="flex flex-col min-w-0 pr-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Sectores / Cuencas Activos
+            </span>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-2xl font-bold tracking-tight text-brand-ink sm:text-3xl">
+                {formatCount(stats.sectores.length)}
+              </span>
+              <span className="text-xs font-bold text-brand-blue">
+                {stats.regionCount} {stats.regionCount === 1 ? "región" : "regiones"}
+              </span>
+            </div>
+            <span className="mt-0.5 truncate text-[11px] font-medium text-slate-500">
+              {stats.sectores.length > 0 ? stats.sectores.slice(0, 3).join(", ") : "Sin sectores"}
+            </span>
+          </div>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-blue">
             <Droplets className="h-6 w-6" />
           </div>
         </div>
 
-        {/* KPI 4 */}
         <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0 pr-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Brigadas en Foco Activo
+              Hogares Afectados
             </span>
             <div className="mt-1 flex items-baseline gap-2">
               <span className="text-2xl font-bold tracking-tight text-brand-ink sm:text-3xl">
-                58
+                {formatCount(stats.totalHogares)}
               </span>
-              <span className="text-xs font-bold text-brand-blue">416 Efectivos</span>
+              <span className="text-xs font-bold text-brand-blue">
+                {formatCount(baseRows.length)} rep.
+              </span>
             </div>
-            <span className="mt-0.5 text-[11px] text-slate-500 font-medium">
-              Capacidad táctica al 82%
+            <span className="mt-0.5 truncate text-[11px] font-medium text-slate-500">
+              {stats.maxRow
+                ? `Mayor: ${stats.maxRow.centroPoblado.nombre} (${formatCount(stats.maxRow.incidencia.hogaresAfectados)} h.)`
+                : "Sin afectación reportada"}
             </span>
           </div>
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-blue">
@@ -297,637 +455,492 @@ export function IncidenciasCampoTab() {
         </div>
       </section>
 
-      {/* 3. CONSOLA CARTOGRÁFICA TÁCTICA & PANEL LATERAL INTEGRADO */}
-      <section className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
-        {/* Mapa Geoespacial Avanzado (8 Cols) */}
-        <div className="relative flex min-h-[660px] flex-col overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] lg:col-span-8">
-          {/* Barra Superior Flotante de Modos y Capas */}
-          <div className="pointer-events-none absolute left-4 right-4 top-4 z-20 flex flex-wrap items-center justify-between gap-2">
-            {/* Selector de Capas Rápido */}
-            <div className="pointer-events-auto flex items-center gap-1 rounded-lg bg-brand-deep/90 p-1.5 text-xs text-white shadow-md backdrop-blur">
-              <button
-                type="button"
-                onClick={() => setActiveLayer("calor")}
-                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition-all ${
-                  activeLayer === "calor"
-                    ? "bg-brand-blue text-white shadow-xs"
-                    : "text-blue-100 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <Flame className="h-3.5 w-3.5" />
-                <span>Mapa de Calor</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveLayer("puntos")}
-                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition-all ${
-                  activeLayer === "puntos"
-                    ? "bg-brand-blue text-white shadow-xs"
-                    : "text-blue-100 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <MapPin className="h-3.5 w-3.5" />
-                <span>Puntos (1,428)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveLayer("rios")}
-                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition-all ${
-                  activeLayer === "rios"
-                    ? "bg-brand-blue text-white shadow-xs"
-                    : "text-blue-100 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <Waves className="h-3.5 w-3.5" />
-                <span>Ríos & Embalses</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveLayer("brigadas")}
-                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition-all ${
-                  activeLayer === "brigadas"
-                    ? "bg-brand-blue text-white shadow-xs"
-                    : "text-blue-100 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <Shield className="h-3.5 w-3.5" />
-                <span>Brigadas GPS</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveLayer("radar")}
-                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition-all ${
-                  activeLayer === "radar"
-                    ? "bg-brand-blue text-white shadow-xs"
-                    : "text-blue-100 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <Satellite className="h-3.5 w-3.5" />
-                <span>Satélite Radar</span>
-              </button>
-            </div>
-
-            {/* Telemetría de Vista GPS */}
-            <div className="pointer-events-auto flex items-center gap-3 rounded-lg bg-brand-deep/90 px-3 py-1.5 font-mono text-xs text-blue-100 shadow-md">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-                LIVE SAT-SYNC
-              </span>
-              <span className="text-white/30">|</span>
-              <span>Z: {zoomLevel.toFixed(1)}x</span>
-              <span className="text-white/30">|</span>
-              <span>PIURA - 05°11&apos;S / 80°38&apos;W</span>
-            </div>
-          </div>
-
-          {/* Controles Laterales Flotantes Cartográficos */}
-          <div className="absolute right-4 top-20 z-20 flex flex-col gap-1.5">
+      {/* Map Console + Inspector */}
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Map (8 cols) */}
+        <div className="relative flex flex-col overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] lg:col-span-8">
+          <div className="absolute left-4 top-4 z-20 flex flex-wrap items-center gap-1.5 rounded-xl bg-brand-deep/90 p-1.5 shadow-lg backdrop-blur">
             <button
               type="button"
-              onClick={() => setZoomLevel((z) => Math.min(16, z + 0.5))}
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-brand-ink shadow-md transition-colors hover:bg-white"
+              onClick={() => setActiveLayer("calor")}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-all ${
+                activeLayer === "calor"
+                  ? "bg-ladp-orange text-white"
+                  : "text-blue-200 hover:bg-white/10"
+              }`}
+            >
+              <Flame className="h-3.5 w-3.5" />
+              <span>Mapa de Calor</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveLayer("puntos")}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-all ${
+                activeLayer === "puntos"
+                  ? "bg-brand-blue text-white"
+                  : "text-blue-200 hover:bg-white/10"
+              }`}
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              <span>Puntos ({mapMarkers.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveLayer("pendientes")}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-all ${
+                activeLayer === "pendientes"
+                  ? "bg-brand-negative text-white"
+                  : "text-blue-200 hover:bg-white/10"
+              }`}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>Pendientes</span>
+            </button>
+          </div>
+
+          <div className="absolute right-4 top-4 z-20 flex flex-col gap-1.5">
+            <button
+              type="button"
+              onClick={() => setZoomScale((z) => Math.min(1.6, Math.round((z + 0.15) * 100) / 100))}
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-brand-ink shadow-md hover:bg-white"
               title="Acercar Zoom"
             >
               <Plus className="h-4 w-4" />
             </button>
             <button
               type="button"
-              onClick={() => setZoomLevel((z) => Math.max(4, z - 0.5))}
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-brand-ink shadow-md transition-colors hover:bg-white"
+              onClick={() => setZoomScale((z) => Math.max(0.85, Math.round((z - 0.15) * 100) / 100))}
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-brand-ink shadow-md hover:bg-white"
               title="Alejar Zoom"
             >
               <Minus className="h-4 w-4" />
             </button>
-            <div className="my-0.5 h-px bg-slate-200" />
             <button
               type="button"
-              onClick={() => setZoomLevel(9.4)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-brand-blue shadow-md transition-colors hover:bg-white"
-              title="Brújula Norte"
+              onClick={() => setZoomScale(1)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-brand-blue shadow-md hover:bg-white"
+              title="Centrar Vista"
             >
               <Compass className="h-4 w-4" />
             </button>
-            <button
-              type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-brand-ink shadow-md transition-colors hover:bg-white"
-              title="Medir Distancia Geodésica"
-            >
-              <Ruler className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setBufferDistance((b) => (b === "5.0 km" ? "10.0 km" : "5.0 km"))}
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-ladp-orange shadow-md transition-colors hover:bg-white"
-              title={`Radio de Afectación (${bufferDistance})`}
-            >
-              <Radio className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/95 text-brand-ink shadow-md transition-colors hover:bg-white"
-              title="Pantalla Completa"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </button>
           </div>
 
-          {/* Lienzo Cartográfico Simulado con Coordenadas y Heatmap Interactivo */}
-          <div className="relative h-[660px] w-full cursor-grab select-none overflow-hidden bg-brand-deep active:cursor-grabbing">
-            {/* Rejilla Militar UTM Táctica de Fondo */}
-            <svg
-              className="pointer-events-none absolute inset-0 h-full w-full opacity-20"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <defs>
-                <pattern id="grid-utm" width="80" height="80" patternUnits="userSpaceOnUse">
-                  <path
-                    d="M 80 0 L 0 0 0 80"
-                    fill="none"
-                    stroke="#778bb5"
-                    strokeWidth="0.75"
-                    strokeDasharray="2 4"
-                  />
-                  <circle cx="80" cy="80" r="1.5" fill="#778bb5" />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid-utm)" />
-            </svg>
-
-            {/* Silueta Litoral Costa Norte del Perú (Vector Táctico SVG) */}
-            <svg
-              className="pointer-events-none absolute inset-0 h-full w-full"
-              viewBox="0 0 1000 700"
-              preserveAspectRatio="none"
-              aria-hidden="true"
-            >
-              <rect x="0" y="0" width="380" height="700" fill="#000d27" opacity="0.6" />
-              <path
-                d="M 330 0 Q 310 90, 320 160 Q 260 210, 240 280 Q 230 330, 290 390 Q 350 440, 390 510 Q 440 600, 520 700 L 1000 700 L 1000 0 Z"
-                fill="#0b2347"
-                stroke="#164985"
-                strokeWidth="1.5"
-                opacity="0.85"
-              />
-              <path
-                d="M 450 140 Q 380 200, 300 240 T 260 300"
-                fill="none"
-                stroke="#90bafe"
-                strokeWidth="3.5"
-                opacity="0.85"
-              />
-              <path
-                d="M 490 190 Q 420 230, 360 250"
-                fill="none"
-                stroke="#90bafe"
-                strokeWidth="2"
-                opacity="0.6"
-              />
-              <path
-                d="M 520 340 Q 440 370, 330 380"
-                fill="none"
-                stroke="#90bafe"
-                strokeWidth="2.5"
-                opacity="0.75"
-              />
-              <path
-                d="M 590 490 Q 490 520, 420 540"
-                fill="none"
-                stroke="#90bafe"
-                strokeWidth="2"
-                opacity="0.75"
-              />
-            </svg>
-
-            {/* Capa de Gradientes de Calor (Heatmap KDE FEN 2026) */}
+          {/* Vector Peru Canvas */}
+          <div className="relative h-[520px] w-full overflow-hidden bg-brand-deep select-none">
             <div
-              className={`pointer-events-none transition-opacity duration-500 ${
-                activeLayer === "calor" ? "opacity-100" : "opacity-30"
-              }`}
+              className="relative h-full w-full transition-transform duration-200"
+              style={{ transform: `scale(${zoomScale})` }}
             >
-              {/* FOCO 1: Piura / Sullana / Bajo Piura (Rojo Vivo) */}
-              <div
-                className="pointer-events-none absolute left-[26%] top-[28%] h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-85 blur-2xl"
-                style={{
-                  background: "radial-gradient(circle, #ba1a1a 0%, #ffb68c 50%, transparent 75%)",
-                }}
-              />
-              <div
-                className="pointer-events-none absolute left-[28%] top-[29%] h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-90 blur-xl"
-                style={{
-                  background: "radial-gradient(circle, #ba1a1a 0%, #ba1a1a88 60%, transparent 80%)",
-                }}
-              />
+              <svg
+                className="pointer-events-none absolute inset-0 h-full w-full opacity-20"
+                aria-hidden="true"
+              >
+                <defs>
+                  <pattern id="grid-utm-real" width="64" height="64" patternUnits="userSpaceOnUse">
+                    <path
+                      d="M 64 0 L 0 0 0 64"
+                      fill="none"
+                      stroke="#778bb5"
+                      strokeWidth="0.75"
+                      strokeDasharray="2 4"
+                    />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid-utm-real)" />
+              </svg>
 
-              {/* FOCO 2: Chulucanas / Morropón */}
-              <div
-                className="pointer-events-none absolute left-[39%] top-[24%] h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-80 blur-xl"
-                style={{
-                  background: "radial-gradient(circle, #df6900 0%, #ffdbc9 50%, transparent 75%)",
-                }}
-              />
+              {/* Heat blobs derived directly from real geoRows */}
+              {activeLayer === "calor"
+                ? mapMarkers.map(({ row, point }) => {
+                    const weight = Math.max(0.35, row.incidencia.hogaresAfectados / maxHogaresInMap);
+                    const diameter = Math.round(90 + weight * 110);
+                    return (
+                      <div
+                        key={`heat-${row.incidencia.id}`}
+                        className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full blur-xl opacity-75"
+                        style={{
+                          left: `${point.xPercent}%`,
+                          top: `${point.yPercent}%`,
+                          width: `${diameter}px`,
+                          height: `${diameter}px`,
+                          background: row.incidencia.verificado
+                            ? "radial-gradient(circle, #325f9c 0%, transparent 72%)"
+                            : "radial-gradient(circle, #df6900 0%, #ffb68c 45%, transparent 72%)",
+                        }}
+                      />
+                    );
+                  })
+                : null}
 
-              {/* FOCO 3: Lambayeque / Íllimo */}
-              <div
-                className="pointer-events-none absolute left-[38%] top-[48%] h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-75 blur-2xl"
-                style={{
-                  background: "radial-gradient(circle, #df6900 0%, #ffb68c 40%, transparent 75%)",
-                }}
-              />
-
-              {/* FOCO 4: Trujillo */}
-              <div
-                className="pointer-events-none absolute left-[48%] top-[68%] h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-65 blur-2xl"
-                style={{
-                  background: "radial-gradient(circle, #325f9c 0%, #90bafe 40%, transparent 75%)",
-                }}
-              />
-            </div>
-
-            {/* Marcadores Interactivos */}
-            {HOTSPOTS_DATA.map((hotspot, idx) => {
-              const isSelected = selectedHotspot.id === hotspot.id;
-              // Specific geographic pin positions
-              const positions = [
-                { top: "31%", left: "29%" },
-                { top: "25%", left: "38%" },
-                { top: "67%", left: "49%" },
-                { top: "14%", left: "34%" },
-              ];
-              const pos = positions[idx % positions.length] as { top: string; left: string };
-
-              return (
-                <div
-                  key={hotspot.id}
-                  style={{ top: pos.top, left: pos.left }}
-                  onClick={() => setSelectedHotspot(hotspot)}
-                  className="group absolute z-30 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-                >
-                  <div className="relative flex items-center justify-center">
-                    {isSelected ? (
-                      <span className="absolute inline-flex h-12 w-12 animate-ping rounded-full bg-brand-negative opacity-75" />
-                    ) : null}
-                    <span
-                      className={`relative flex h-8 w-8 items-center justify-center rounded-full shadow-xl ring-2 ring-white ${
-                        hotspot.riskLevel === "critical"
-                          ? "bg-brand-negative text-white"
-                          : hotspot.riskLevel === "severe"
-                            ? "bg-ladp-orange text-white"
-                            : "bg-brand-blue text-white"
-                      }`}
-                    >
-                      <MapPin className="h-4 w-4" />
-                    </span>
-                  </div>
-
-                  {/* Etiqueta Flotante Táctica */}
-                  <div
-                    className={`absolute -top-2 left-9 whitespace-nowrap rounded-lg bg-brand-deep px-2.5 py-1.5 text-xs text-white shadow-lg border-l-4 ${
-                      hotspot.riskLevel === "critical"
-                        ? "border-brand-negative"
-                        : hotspot.riskLevel === "severe"
-                          ? "border-ladp-orange"
-                          : "border-brand-blue"
-                    } ${isSelected ? "flex" : "hidden group-hover:flex"} flex-col`}
+              {/* Real clickable incident pins */}
+              {mapMarkers.map(({ row, point }) => {
+                const isSelected = selectedRow?.incidencia.id === row.incidencia.id;
+                const { incidencia, centroPoblado } = row;
+                return (
+                  <button
+                    key={incidencia.id}
+                    type="button"
+                    aria-label={`Foco ${incidencia.codigoAuditoria} - ${centroPoblado.nombre}`}
+                    onClick={() => setSelectedId(incidencia.id)}
+                    style={{ left: `${point.xPercent}%`, top: `${point.yPercent}%` }}
+                    className="group absolute z-30 -translate-x-1/2 -translate-y-1/2 focus:outline-none"
                   >
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono font-bold text-white">{hotspot.code}</span>
-                      <span className="rounded bg-brand-negative px-1 py-0.2 text-[9px] font-bold uppercase text-white">
-                        {hotspot.riskLevel === "critical" ? "CRÍTICO" : "SEVERO"}
+                    <span className="relative flex items-center justify-center">
+                      {isSelected ? (
+                        <span className="absolute inline-flex h-11 w-11 animate-ping rounded-full bg-ladp-orange opacity-70" />
+                      ) : null}
+                      <span
+                        className={`relative flex h-8 w-8 items-center justify-center rounded-full shadow-xl ring-2 ring-white transition-transform ${
+                          isSelected ? "scale-110" : "group-hover:scale-105"
+                        } ${
+                          incidencia.verificado
+                            ? "bg-brand-blue text-white"
+                            : "bg-ladp-orange text-white"
+                        }`}
+                      >
+                        <MapPin className="h-4 w-4" />
                       </span>
-                    </div>
-                    <span className="font-mono text-[11px] text-blue-200">
-                      {hotspot.basin}
                     </span>
-                  </div>
-                </div>
-              );
-            })}
+                    <span
+                      className={`absolute -top-2 left-9 whitespace-nowrap rounded-lg bg-brand-deep px-2.5 py-1 text-left text-[11px] text-white shadow-lg ${
+                        isSelected ? "flex" : "hidden group-hover:flex"
+                      } flex-col`}
+                    >
+                      <span className="font-mono font-bold">{incidencia.codigoAuditoria}</span>
+                      <span className="text-[10px] text-blue-200">
+                        {centroPoblado.nombre} · {formatCount(incidencia.hogaresAfectados)} h.
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-            {/* Topónimos Geográficos */}
-            <span className="pointer-events-none absolute left-[38%] top-[16%] text-[11px] font-bold tracking-wider text-blue-200/70">
-              TUMBES
-            </span>
-            <span className="pointer-events-none absolute left-[33%] top-[34%] text-xs font-bold tracking-widest text-blue-100/90">
-              PIURA (SECTOR 01)
-            </span>
-            <span className="pointer-events-none absolute left-[44%] top-[49%] text-[11px] font-bold tracking-wider text-blue-200/70">
-              LAMBAYEQUE
-            </span>
-            <span className="pointer-events-none absolute left-[53%] top-[69%] text-[11px] font-bold tracking-wider text-blue-200/70">
-              LA LIBERTAD
-            </span>
-            <span className="pointer-events-none absolute left-[10%] top-[40%] font-mono text-xs uppercase tracking-widest text-blue-200/50">
-              OCÉANO PACÍFICO SUR
-            </span>
+            {mapMarkers.length === 0 ? (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6 text-center">
+                <p className="rounded-xl bg-brand-deep/90 px-4 py-3 text-xs font-semibold text-blue-100">
+                  No hay incidencias georreferenciadas para los filtros actuales.
+                </p>
+              </div>
+            ) : null}
 
-            {/* Leyenda Térmica Flotante */}
-            <div className="absolute bottom-4 left-4 z-20 min-w-[275px] max-w-sm rounded-xl bg-brand-deep/95 p-3 text-xs text-white shadow-lg backdrop-blur">
-              <div className="flex items-center justify-between pb-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
-                  Severidad Térmica / FEN
+            {/* Legend */}
+            <div className="absolute bottom-4 left-4 z-20 rounded-xl bg-brand-deep/95 p-3 text-xs text-white shadow-lg">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
+                Estado de Reportes en Mapa
+              </p>
+              <div className="mt-1.5 flex items-center gap-4 text-[11px]">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-ladp-orange" /> Pendiente
                 </span>
-                <span className="font-mono text-[10px] font-bold text-amber-300">
-                  KDE 85% CONF
-                </span>
-              </div>
-              <div className="h-2 w-full rounded-full bg-gradient-to-r from-brand-soft via-ladp-orange to-brand-negative shadow-inner" />
-              <div className="mt-1.5 flex items-center justify-between gap-2.5 font-mono text-[9px] text-blue-200">
-                <span>Normal (&lt;20%)</span>
-                <span>Mod (20-50%)</span>
-                <span>Sev (50-80%)</span>
-                <span className="font-bold text-rose-300">Crítico (&gt;80%)</span>
-              </div>
-              <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2 text-[10px] text-blue-200">
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-brand-negative" /> Alerta Roja Fluvial
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-brand-blue" /> Sensores Activos
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-brand-blue" /> Verificado
                 </span>
               </div>
             </div>
 
-            {/* Indicador de Escala Gráfica */}
-            <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 rounded-lg bg-brand-deep/90 px-2.5 py-1.5 font-mono text-[10px] text-blue-200 shadow">
-              <span>50 km</span>
-              <div className="flex h-1 w-16 bg-blue-200">
-                <div className="h-full w-8 bg-brand-deep" />
-              </div>
-              <span>EPSG: 4326</span>
+            <div className="absolute bottom-4 right-4 z-20 rounded-lg bg-brand-deep/90 px-2.5 py-1.5 font-mono text-[10px] text-blue-200 shadow">
+              Zoom {zoomScale.toFixed(2)}x · EPSG:4326
             </div>
           </div>
 
-          {/* Barra de Estado Inferior del Visor */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-brand-mist p-3 text-xs text-slate-600 font-medium">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-brand-mist p-3 text-xs font-medium text-slate-600">
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="h-3.5 w-3.5 text-brand-blue" />
-              <span>Filtro activo: Solo cuencas con caudal &gt; P90 y pendientes &gt; 15°</span>
+              <span>
+                Mostrando {mapMarkers.length} {mapMarkers.length === 1 ? "marcador" : "marcadores"}{" "}
+                georreferenciados
+              </span>
             </div>
-            <div className="flex items-center gap-3 font-mono text-[11px]">
-              <span>Buffer Activo: {bufferDistance}</span>
-              <span>•</span>
-              <span>Proyección: Transversa de Mercator</span>
-            </div>
+            <span className="font-mono text-[11px]">
+              {stats.withoutGpsFiltered > 0
+                ? `${stats.withoutGpsFiltered} sin GPS (visibles en matriz)`
+                : "Todos los registros visibles cuentan con GPS"}
+            </span>
           </div>
         </div>
 
-        {/* 4. Panel Lateral Táctico de Inspección (4 Cols) */}
-        <div className="flex flex-col overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] lg:col-span-4">
-          {/* Cabecera de Ficha Táctica */}
-          <div className="flex items-start justify-between bg-brand-deep p-4 text-white">
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="rounded bg-brand-negative px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
-                  ALERTA ROJA
-                </span>
-                <span className="font-mono text-xs text-blue-200">
-                  #{selectedHotspot.code}
-                </span>
-              </div>
-              <h3 className="mt-1 text-base font-bold text-white">
-                {selectedHotspot.basin}
-              </h3>
-              <span className="text-xs text-blue-200">
-                {selectedHotspot.district}
-              </span>
-            </div>
-          </div>
-
-          {/* Métricas Críticas Clave del Punto Seleccionado */}
-          <div className="flex flex-col gap-4 p-4 text-xs">
-            {/* Estado de Riesgo Inminente */}
-            <div className="flex items-center gap-3 rounded-xl bg-rose-50 p-3 text-brand-negative">
-              <Droplets className="h-6 w-6 shrink-0 text-brand-negative" />
-              <div className="flex flex-col">
-                <span className="font-bold uppercase text-[11px]">DESBORDE INMINENTE (NIVEL 4)</span>
-                <span className="text-[11px]">Cota de desborde superada en +42 cm en margen izquierda.</span>
-              </div>
-            </div>
-
-            {/* Grilla de Datos Técnicos y Parámetros Hidrológicos */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex flex-col rounded-xl bg-brand-mist p-2.5">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Caudal Registrado</span>
-                <span className="mt-0.5 font-mono text-base font-bold text-brand-ink">
-                  {selectedHotspot.flowMetric}
-                </span>
-                <span className="font-mono text-[10px] font-bold text-brand-negative">
-                  {selectedHotspot.flowTrend}
-                </span>
-              </div>
-
-              <div className="flex flex-col rounded-xl bg-brand-mist p-2.5">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Población Expuesta</span>
-                <span className="mt-0.5 font-mono text-base font-bold text-brand-ink">
-                  110 Fam.
-                </span>
-                <span className="text-[10px] text-slate-500">~480 personas</span>
-              </div>
-
-              <div className="flex flex-col rounded-xl bg-brand-mist p-2.5">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Coordenadas DGPS</span>
-                <span className="mt-0.5 font-mono text-[11px] font-bold text-brand-ink">
-                  {selectedHotspot.coords}
-                </span>
-                <span className="text-[10px] text-slate-500">Elev: 29 msnm</span>
-              </div>
-
-              <div className="flex flex-col rounded-xl bg-brand-mist p-2.5">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Velocidad Aumento</span>
-                <span className="mt-0.5 font-mono text-base font-bold text-ladp-orange">
-                  +48 m³/s/h
-                </span>
-                <span className="text-[10px] text-ladp-orange font-semibold">Tendencia Ascendente</span>
-              </div>
-            </div>
-
-            {/* Unidad Táctica Asignada */}
-            <div className="flex items-center justify-between rounded-xl bg-brand-mist p-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-blue font-mono text-xs font-bold text-white">
-                  B-3
+        {/* Side Inspector Panel (4 cols) */}
+        <div
+          data-testid="campo-inspector"
+          className="flex flex-col overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] lg:col-span-4"
+        >
+          {selectedRow ? (
+            <>
+              <div className="bg-brand-deep p-4 text-white">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                      selectedRow.incidencia.verificado
+                        ? "bg-emerald-600 text-white"
+                        : "bg-ladp-orange text-white"
+                    }`}
+                  >
+                    {selectedRow.incidencia.verificado ? "VERIFICADO" : "PENDIENTE"}
+                  </span>
+                  <span className="font-mono text-xs text-blue-200">
+                    #{selectedRow.incidencia.codigoAuditoria}
+                  </span>
                 </div>
-                <div className="flex flex-col">
-                  <span className="font-bold text-brand-ink">{selectedHotspot.assignedBrigade}</span>
-                  <span className="text-[11px] text-slate-500">Cmdte. PNP M. Vásquez (14 efectivos)</span>
-                </div>
+                <h3 className="mt-1.5 text-base font-bold text-white">
+                  {selectedRow.centroPoblado.nombre}
+                </h3>
+                <span className="text-xs text-blue-200">
+                  {selectedRow.centroPoblado.sector} · {selectedRow.centroPoblado.region}
+                </span>
               </div>
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-600 animate-pulse" />
-            </div>
 
-            {/* Miniatura de Reconocimiento Dron */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between text-[11px] font-bold">
-                <span className="uppercase text-brand-ink">Reconocimiento Aéreo Térmico</span>
-                <span className="font-mono text-brand-blue">Dron FEN-Alpha 02</span>
-              </div>
-              <div className="relative h-28 w-full overflow-hidden rounded-xl bg-brand-deep shadow-inner">
-                <div className="flex h-full w-full items-center justify-center font-mono text-xs text-blue-200">
-                  [STREAM TÉRMICO FLIR ACTIVO]
+              <div className="flex flex-col gap-3 p-4 text-xs">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl bg-brand-mist p-2.5">
+                    <span className="text-[10px] font-bold uppercase text-slate-500">
+                      Tipo de Afectación
+                    </span>
+                    <p className="mt-0.5 font-bold text-brand-ink">
+                      {labelForTipoAfectacion(selectedRow.incidencia.tipoAfectacion)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-brand-mist p-2.5">
+                    <span className="text-[10px] font-bold uppercase text-slate-500">
+                      Hogares Afectados
+                    </span>
+                    <p className="mt-0.5 font-mono text-base font-bold text-brand-ink">
+                      {formatCount(selectedRow.incidencia.hogaresAfectados)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-brand-mist p-2.5">
+                    <span className="text-[10px] font-bold uppercase text-slate-500">
+                      Necesidad Principal
+                    </span>
+                    <p className="mt-0.5 font-bold text-brand-ink">
+                      {labelForNecesidad(selectedRow.incidencia.necesidadPrincipal)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-brand-mist p-2.5">
+                    <span className="text-[10px] font-bold uppercase text-slate-500">
+                      Fecha del Suceso
+                    </span>
+                    <p className="mt-0.5 font-mono font-bold text-brand-ink">
+                      {formatDateKey(selectedRow.incidencia.fechaSuceso)}
+                    </p>
+                  </div>
                 </div>
-                <div className="absolute bottom-2 left-2 rounded bg-brand-deep/85 px-2 py-0.5 font-mono text-[10px] text-white">
-                  ALT: 180m • FOV 84° • FLIR INFRARED
-                </div>
-                <div className="absolute right-2 top-2 rounded bg-brand-negative px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
-                  BRECHA DETECTADA
-                </div>
-              </div>
-            </div>
 
-            {/* Acciones Tácticas del Panel */}
-            <div className="flex flex-col gap-2 pt-1">
-              <button
-                type="button"
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-ladp-orange py-2.5 text-xs font-bold text-white shadow-xs transition-colors hover:bg-ladp-orange/90"
-              >
-                <PhoneCall className="h-4 w-4" />
-                <span>Emitir Alerta Temprana SMS (SISMATE / CAT)</span>
-              </button>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-1.5 rounded-lg bg-brand-mist py-2 text-xs font-bold text-brand-blue transition-colors hover:bg-brand-soft"
-                >
-                  <Truck className="h-3.5 w-3.5" />
-                  <span>Asignar Recursos Extra</span>
-                </button>
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-1.5 rounded-lg bg-brand-mist py-2 text-xs font-bold text-brand-ink transition-colors hover:bg-brand-soft"
-                >
-                  <Video className="h-3.5 w-3.5" />
-                  <span>Telemetría Dron</span>
-                </button>
+                <div className="rounded-xl bg-brand-mist p-3">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">
+                    Coordenadas WGS84
+                  </span>
+                  <p className="mt-0.5 font-mono text-[11px] font-bold text-brand-ink">
+                    {selectedRow.incidencia.gpsCoords ?? "Sin coordenadas GPS registradas"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-brand-mist p-3">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">
+                    Responsables Asignados
+                  </span>
+                  <p className="mt-0.5 font-semibold text-brand-ink">
+                    Reporta:{" "}
+                    {usersById.get(selectedRow.incidencia.creadoPor)?.nombre ??
+                      selectedRow.incidencia.creadoPor}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">
+                    Coordinación:{" "}
+                    {selectedRow.centroPoblado.coordinadorZonaId
+                      ? (usersById.get(selectedRow.centroPoblado.coordinadorZonaId)?.nombre ??
+                        selectedRow.centroPoblado.coordinadorZonaId)
+                      : "Sin coordinador asignado"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-brand-mist p-3">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">
+                    Nota de Campo
+                  </span>
+                  <p className="mt-0.5 font-medium text-slate-600">
+                    {selectedRow.incidencia.notaReferencia ?? "Sin observaciones adicionales."}
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2 pt-1">
+                  {canValidate ? (
+                    <button
+                      type="button"
+                      disabled={validating}
+                      data-testid="campo-validate-btn"
+                      onClick={() => void handleValidateSelected()}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-positive py-2.5 text-xs font-bold text-white shadow-xs transition-colors hover:brightness-110 disabled:opacity-60"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>
+                        {validating ? "Validando..." : "Validar Existencia en Campo"}
+                      </span>
+                    </button>
+                  ) : null}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyInspector()}
+                      className="flex items-center justify-center gap-1.5 rounded-lg bg-brand-mist py-2 text-xs font-bold text-brand-blue hover:bg-brand-soft"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      <span>Copiar Ficha</span>
+                    </button>
+                    {onRegisterAtCentro ? (
+                      <button
+                        type="button"
+                        onClick={() => onRegisterAtCentro(selectedRow.centroPoblado.id)}
+                        className="flex items-center justify-center gap-1.5 rounded-lg bg-brand-mist py-2 text-xs font-bold text-brand-ink hover:bg-brand-soft"
+                      >
+                        <MapPin className="h-3.5 w-3.5" />
+                        <span>Registrar Seguimiento</span>
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
               </div>
+            </>
+          ) : (
+            <div className="flex flex-1 items-center justify-center p-6 text-center text-xs font-semibold text-slate-500">
+              Selecciona o filtra una incidencia en la matriz para inspeccionar su ficha técnica.
             </div>
-          </div>
+          )}
         </div>
       </section>
 
-      {/* 5. SUB-TABLA RÁPIDA DE PUNTOS CALIENTES (HOTSPOTS PRIORITARIOS) */}
+      {/* Matrix Table */}
       <section className="flex flex-col gap-4 rounded-xl bg-white p-5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3">
+        <div className="flex flex-col gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <Flame className="h-5 w-5 text-ladp-orange" />
             <h3 className="text-sm font-bold text-brand-ink sm:text-base">
-              MATRIZ OPERATIVA DE PUNTOS CALIENTES PRIORITARIOS (HOTSPOTS FEN 2026)
+              MATRIZ DE INCIDENCIAS GEORREFERENCIADAS EN CAMPO
             </h3>
             <span className="rounded-lg bg-brand-mist px-2 py-0.5 text-[11px] font-bold text-brand-ink">
-              {filteredHotspots.length} Focos Activos
+              {filteredRows.length} Registros
             </span>
           </div>
 
-          {/* Filtro y Búsqueda Geoespacial */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={filterSearch}
                 onChange={(e) => setFilterSearch(e.target.value)}
-                placeholder="Filtrar por cuenca o distrito..."
-                className="h-9 w-56 rounded-lg bg-brand-mist pl-8 pr-3 text-xs font-semibold text-brand-ink placeholder:text-slate-400 transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
+                placeholder="Buscar código, centro o sector..."
+                className="h-9 w-56 rounded-lg bg-brand-mist pl-8 pr-3 text-xs font-semibold text-brand-ink placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
               />
             </div>
+
             <select
-              value={selectedRiskFilter}
-              onChange={(e) => setSelectedRiskFilter(e.target.value)}
-              className="h-9 rounded-lg bg-brand-mist px-2.5 text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
+              aria-label="Filtrar por estado"
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as "all" | "pending" | "verified" | "gps")
+              }
+              className="h-9 rounded-lg bg-brand-mist px-2.5 text-xs font-semibold text-brand-ink focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
             >
-              <option value="all">Todos los Niveles</option>
-              <option value="critical">Solo Nivel Rojo (Crítico)</option>
-              <option value="severe">Solo Nivel Naranja</option>
+              <option value="all">Todos los estados</option>
+              <option value="pending">Pendientes de validar</option>
+              <option value="verified">Solo verificadas</option>
+              <option value="gps">Con GPS registrado</option>
+            </select>
+
+            <select
+              aria-label="Filtrar por tipo de afectación"
+              value={tipoFilter}
+              onChange={(e) => setTipoFilter(e.target.value)}
+              className="h-9 rounded-lg bg-brand-mist px-2.5 text-xs font-semibold text-brand-ink focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
+            >
+              <option value="all">Todo tipo de afectación</option>
+              {TIPO_AFECTACION_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
 
-        {/* Tabla Táctica de Datos */}
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs">
+          <table className="w-full min-w-[720px] border-collapse text-left text-xs">
             <thead>
-              <tr className="bg-brand-mist text-slate-500 font-bold uppercase tracking-wider text-[11px]">
-                <th scope="col" className="px-3 py-2.5">Código / ID</th>
-                <th scope="col" className="px-3 py-2.5">Cuenca / Localización</th>
-                <th scope="col" className="px-3 py-2.5">Tipo Fenómeno</th>
-                <th scope="col" className="px-3 py-2.5">Nivel de Riesgo</th>
-                <th scope="col" className="px-3 py-2.5">Caudal / Métrica</th>
-                <th scope="col" className="px-3 py-2.5">Evacuación</th>
-                <th scope="col" className="px-3 py-2.5">Brigada Asignada</th>
-                <th scope="col" className="px-3 py-2.5">Último Reporte</th>
-                <th scope="col" className="px-3 py-2.5 text-right">Acción</th>
+              <tr className="bg-brand-mist text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <th scope="col" className="px-3 py-2.5">
+                  Código
+                </th>
+                <th scope="col" className="px-3 py-2.5">
+                  Centro Poblado / Sector
+                </th>
+                <th scope="col" className="px-3 py-2.5">
+                  Afectación
+                </th>
+                <th scope="col" className="px-3 py-2.5">
+                  Necesidad Principal
+                </th>
+                <th scope="col" className="px-3 py-2.5">
+                  Hogares
+                </th>
+                <th scope="col" className="px-3 py-2.5">
+                  Estado
+                </th>
+                <th scope="col" className="px-3 py-2.5">
+                  Fecha
+                </th>
+                <th scope="col" className="px-3 py-2.5 text-right">
+                  Acción
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-brand-ink font-medium">
-              {filteredHotspots.map((hotspot) => {
-                const isSelected = selectedHotspot.id === hotspot.id;
+            <tbody className="divide-y divide-slate-100 font-medium text-brand-ink">
+              {filteredRows.map((row) => {
+                const { incidencia, centroPoblado } = row;
+                const isSelected = selectedRow?.incidencia.id === incidencia.id;
                 return (
                   <tr
-                    key={hotspot.id}
-                    className={`transition-colors ${
-                      isSelected
-                        ? "bg-brand-soft/60 font-semibold"
-                        : "hover:bg-brand-mist/60"
-                    }`}
+                    key={incidencia.id}
+                    data-testid="campo-incident-row"
+                    className={isSelected ? "bg-brand-soft/60 font-semibold" : "hover:bg-brand-mist/60"}
                   >
                     <td className="px-3 py-2.5 font-mono font-bold text-brand-blue">
-                      {hotspot.code}
+                      {incidencia.codigoAuditoria}
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex flex-col">
-                        <span className="font-bold text-brand-ink">{hotspot.basin}</span>
-                        <span className="font-mono text-[10px] text-slate-500">
-                          {hotspot.district} ({hotspot.coords})
+                        <span className="font-bold text-brand-ink">{centroPoblado.nombre}</span>
+                        <span className="text-[10px] text-slate-500">
+                          {centroPoblado.sector} · {centroPoblado.region}
                         </span>
                       </div>
                     </td>
-                    <td className="px-3 py-2.5">
-                      <span className="inline-flex items-center gap-1">
-                        <Droplets className="h-3.5 w-3.5 text-brand-blue" />
-                        {hotspot.phenomenon}
-                      </span>
+                    <td className="px-3 py-2.5">{labelForTipoAfectacion(incidencia.tipoAfectacion)}</td>
+                    <td className="px-3 py-2.5">{labelForNecesidad(incidencia.necesidadPrincipal)}</td>
+                    <td className="px-3 py-2.5 font-mono font-bold">
+                      {formatCount(incidencia.hogaresAfectados)}
                     </td>
                     <td className="px-3 py-2.5">
                       <span
-                        className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
-                          hotspot.riskLevel === "critical"
-                            ? "bg-rose-50 text-brand-negative"
-                            : hotspot.riskLevel === "severe"
-                              ? "bg-amber-50 text-ladp-orange"
-                              : "bg-brand-soft text-brand-blue"
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                          incidencia.verificado
+                            ? "bg-emerald-50 text-brand-positive"
+                            : "bg-amber-50 text-ladp-orange"
                         }`}
                       >
-                        {hotspot.riskLevel === "critical"
-                          ? "ROJO (CRÍTICO)"
-                          : hotspot.riskLevel === "severe"
-                            ? "NARANJA (SEVERO)"
-                            : "AMARILLO (MODERADO)"}
+                        {incidencia.verificado ? "Verificado" : "Pendiente"}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 font-mono">
-                      <span className="font-bold text-brand-ink">{hotspot.flowMetric}</span>
-                      <span className="block text-[10px] text-slate-500">{hotspot.flowTrend}</span>
+                    <td className="px-3 py-2.5 font-mono text-slate-500">
+                      {formatDateKey(incidencia.fechaSuceso)}
                     </td>
-                    <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-1.5 font-mono">
-                        <div className="h-2 w-14 overflow-hidden rounded-full bg-slate-100">
-                          <div
-                            className="h-full bg-brand-blue"
-                            style={{ width: `${hotspot.evacuationPct}%` }}
-                          />
-                        </div>
-                        <span>{hotspot.evacuationPct}%</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2.5">{hotspot.assignedBrigade}</td>
-                    <td className="px-3 py-2.5 font-mono text-slate-500">{hotspot.lastReport}</td>
                     <td className="px-3 py-2.5 text-right">
                       <button
                         type="button"
-                        onClick={() => setSelectedHotspot(hotspot)}
-                        className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                        onClick={() => setSelectedId(incidencia.id)}
+                        className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-colors ${
                           isSelected
-                            ? "bg-brand-blue text-white shadow-xs"
+                            ? "bg-brand-blue text-white"
                             : "bg-brand-mist text-brand-blue hover:bg-brand-soft"
                         }`}
                       >
@@ -939,6 +952,11 @@ export function IncidenciasCampoTab() {
               })}
             </tbody>
           </table>
+          {filteredRows.length === 0 ? (
+            <p className="py-6 text-center text-xs font-semibold text-slate-500">
+              No se encontraron incidencias en campo para los filtros aplicados.
+            </p>
+          ) : null}
         </div>
       </section>
     </div>

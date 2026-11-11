@@ -10,4 +10,5 @@ export interface AuthRepository {
   restoreSession(): Promise<UserProfile | null>;
   logout(): Promise<void>;
   keepSession(profile: UserProfile): Promise<void>;
+  listUsers(): Promise<UserProfile[]>;
 }

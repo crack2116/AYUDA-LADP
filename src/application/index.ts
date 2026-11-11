@@ -13,5 +13,7 @@ export * from "@/application/use-cases/create-incidencia.use-case";
 export * from "@/application/use-cases/create-support-ticket.use-case";
 export * from "@/application/use-cases/export-incidencias-csv.use-case";
 export * from "@/application/use-cases/list-incidencias.use-case";
+export * from "@/application/use-cases/list-users.use-case";
 export * from "@/application/use-cases/login.use-case";
+export * from "@/application/use-cases/tactical-drafts.use-case";
 export * from "@/application/use-cases/validate-incidencia-existence.use-case";

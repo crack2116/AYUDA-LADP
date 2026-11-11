@@ -12,7 +12,9 @@ import { CreateIncidenciaUseCase } from "@/application/use-cases/create-incidenc
 import { CreateSupportTicketUseCase } from "@/application/use-cases/create-support-ticket.use-case";
 import { ExportIncidenciasCsvUseCase } from "@/application/use-cases/export-incidencias-csv.use-case";
 import { ListIncidenciasUseCase } from "@/application/use-cases/list-incidencias.use-case";
+import { ListUsersUseCase } from "@/application/use-cases/list-users.use-case";
 import { LoginUseCase } from "@/application/use-cases/login.use-case";
+import { TacticalDraftsUseCase } from "@/application/use-cases/tactical-drafts.use-case";
 import { ValidateIncidenciaExistenceUseCase } from "@/application/use-cases/validate-incidencia-existence.use-case";
 
 import { LocalStorageCache } from "@/infrastructure/cache/local-storage-cache";
@@ -33,6 +35,8 @@ export interface AppUseCases {
   createSupportTicket: CreateSupportTicketUseCase;
   login: LoginUseCase;
   listIncidencias: ListIncidenciasUseCase;
+  listUsers: ListUsersUseCase;
+  tacticalDrafts: TacticalDraftsUseCase;
 }
 
 export interface AppContainer {
@@ -104,6 +108,11 @@ function createContainer(clock: () => Date): AppContainer {
     listIncidencias: new ListIncidenciasUseCase({
       incidenciaRepository,
       centroPobladoRepository,
+    }),
+    listUsers: new ListUsersUseCase({ authRepository }),
+    tacticalDrafts: new TacticalDraftsUseCase({
+      cache,
+      now: clock,
     }),
   };
 

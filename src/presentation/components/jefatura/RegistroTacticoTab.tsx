@@ -1,352 +1,733 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
-  Activity,
   AlertOctagon,
   AlertTriangle,
-  Baby,
-  BellRing,
   Building2,
   Check,
   CheckCircle2,
   ChevronDown,
-  CloudRain,
+  ClipboardCheck,
+  Copy,
   Crosshair,
   Droplets,
   Flame,
-  HeartHandshake,
   History,
   Home,
   MapPin,
-  Navigation,
-  Paperclip,
   PhoneOff,
-  RefreshCw,
+  Radio,
+  RotateCcw,
   Save,
   Send,
   Shield,
-  ShieldAlert,
   Trash2,
-  Truck,
-  UploadCloud,
   UserCheck,
-  Users,
-  Video,
   Waves,
   ZapOff,
 } from "lucide-react";
 
-type PhenomenonType =
-  | "fluvial"
-  | "huayco"
-  | "colapso"
-  | "lluvia"
-  | "quebrada"
-  | "oleaje";
+import type { DuplicateCheckResult } from "@/application/use-cases/check-duplicate-incidencia.use-case";
+import type {
+  TacticalDraft,
+  TacticalTransitability,
+} from "@/application/use-cases/tactical-drafts.use-case";
+import type { CentroPoblado } from "@/domain/entities/centro-poblado";
+import {
+  NECESIDAD_OPTIONS,
+  TIPO_AFECTACION_OPTIONS,
+  labelForNecesidad,
+  labelForTipoAfectacion,
+  type Incidencia,
+  type NecesidadPrincipal,
+  type TipoAfectacion,
+} from "@/domain/entities/incidencia";
+import { USER_ROLE_LABELS, type UserProfile } from "@/domain/entities/user";
+import { toLimaDateKey } from "@/domain/lib/date";
+import { formatManualGpsCoords, parseGpsCoords } from "@/domain/lib/gps";
+import { createIncidenciaSchema } from "@/domain/schemas/incidencia.schema";
+import { projectPeruCoordsToPercent } from "@/domain/services/territorial-analysis";
+import { getContainer } from "@/infrastructure/container";
+import { formatAccuracy, formatCount } from "@/presentation/lib/format";
 
-interface PhenomenonOption {
-  id: PhenomenonType;
-  title: string;
-  description: string;
-  icon: typeof Droplets;
-  accent: string;
-  badge: string;
+export interface RegistroTacticoTabProps {
+  centros?: readonly CentroPoblado[];
+  currentUser?: UserProfile | null;
+  initialCentroId?: string | null;
+  onIncidentCreated?: (incidencia: Incidencia) => Promise<void> | void;
 }
 
-const PHENOMENON_OPTIONS: readonly PhenomenonOption[] = [
-  {
-    id: "fluvial",
-    title: "Inundación Fluvial",
-    description: "Desborde de río / defensas ribereñas",
-    icon: Droplets,
-    accent: "border-sky-500 bg-sky-50/50 text-sky-950 dark:bg-sky-950/20 dark:text-sky-100",
-    badge: "Prioridad 1",
-  },
-  {
-    id: "huayco",
-    title: "Huayco / Masa",
-    description: "Movimiento de detritos y lodo en quebradas",
-    icon: Flame,
-    accent: "border-amber-500 bg-amber-50/50 text-amber-950 dark:bg-amber-950/20 dark:text-amber-100",
-    badge: "Prioridad 1",
-  },
-  {
-    id: "colapso",
-    title: "Colapso Vial",
-    description: "Corte de puentes o rutas de penetración",
-    icon: AlertOctagon,
-    accent: "border-orange-500 bg-orange-50/50 text-orange-950 dark:bg-orange-950/20 dark:text-orange-100",
-    badge: "Acceso Crítico",
-  },
-  {
-    id: "lluvia",
-    title: "Lluvia Torrencial",
-    description: "Anegamiento urbano severo / colapso pluvial",
-    icon: CloudRain,
-    accent: "border-blue-500 bg-blue-50/50 text-blue-950 dark:bg-blue-950/20 dark:text-blue-100",
-    badge: "Monitoreo",
-  },
-  {
-    id: "quebrada",
-    title: "Quebrada Seca",
-    description: "Activación súbita de flujo sin aviso previo",
-    icon: Activity,
-    accent: "border-purple-500 bg-purple-50/50 text-purple-950 dark:bg-purple-950/20 dark:text-purple-100",
-    badge: "Alta Amenaza",
-  },
-  {
-    id: "oleaje",
-    title: "Oleaje Anómalo",
-    description: "Impacto en borde litoral e infraestructura portuaria",
-    icon: Waves,
-    accent: "border-cyan-500 bg-cyan-50/50 text-cyan-950 dark:bg-cyan-950/20 dark:text-cyan-100",
-    badge: "Costero",
-  },
+const TRANSITABILITY_OPTIONS: ReadonlyArray<{
+  id: TacticalTransitability;
+  label: string;
+  desc: string;
+}> = [
+  { id: "4x4", label: "Transitable 4x4", desc: "Acceso terrestre restringido" },
+  { id: "aerea", label: "Vía Aérea / Fluvial", desc: "Requiere bote o puente aéreo" },
+  { id: "bloqueada", label: "Ruta Bloqueada", desc: "Corte por agua o derrumbe" },
+  { id: "aislado", label: "Aislamiento Total", desc: "Sin ingreso terrestre" },
 ];
 
-interface RegionData {
-  provincias: Record<string, string[]>;
+const VITAL_SERVICES: ReadonlyArray<{
+  id: string;
+  label: string;
+  icon: typeof Droplets;
+}> = [
+  { id: "sinAgua", label: "Sin Agua Potable", icon: Droplets },
+  { id: "sinLuz", label: "Corte Eléctrico", icon: ZapOff },
+  { id: "sinCobertura", label: "Sin Cobertura Móvil", icon: PhoneOff },
+  { id: "colapsoDesague", label: "Colapso Desagüe", icon: AlertTriangle },
+  { id: "saludAfectado", label: "Estab. Salud Afectado", icon: Building2 },
+];
+
+function iconForAfectacion(tipo: TipoAfectacion) {
+  switch (tipo) {
+    case "inundacion":
+    case "desborde_rio":
+      return Waves;
+    case "huaico":
+      return Flame;
+    case "colapso_vivienda":
+      return AlertOctagon;
+    case "aislamiento_vial":
+      return MapPin;
+    case "corte_servicios":
+      return ZapOff;
+    default:
+      return AlertTriangle;
+  }
 }
 
-const GEOGRAPHIC_DATA: Record<string, RegionData> = {
-  Piura: {
-    provincias: {
-      Piura: ["Catacaos", "Cura Mori", "Castilla", "Tambogrande", "Las Lomas"],
-      Morropón: ["Chulucanas", "Buenos Aires", "Morropón", "Salitral"],
-      Paita: ["Paita", "Amotape", "La Huaca", "Vichayal"],
-      Sullana: ["Sullana", "Bellavista", "Lancones", "Marcavelica", "Querecotillo"],
-    },
-  },
-  Tumbes: {
-    provincias: {
-      Tumbes: ["Tumbes", "Corrales", "La Cruz", "Pampas de Hospital", "San Jacinto"],
-      Zarumilla: ["Zarumilla", "Aguas Verdes", "Matapalo", "Papayal"],
-      "Contralmirante Villar": ["Zorritos", "Casitas", "Canoas de Punta Sal"],
-    },
-  },
-  Lambayeque: {
-    provincias: {
-      Chiclayo: ["Chiclayo", "Chongoyape", "Eten", "José Leonardo Ortiz", "La Victoria"],
-      Lambayeque: ["Lambayeque", "Íllimo", "Jayanca", "Mochumí", "Mórrope", "Olmos", "Pacora"],
-      Ferreñafe: ["Ferreñafe", "Cañaris", "Incahuasi", "Pítipo"],
-    },
-  },
-  "La Libertad": {
-    provincias: {
-      Trujillo: ["Trujillo", "El Porvenir", "Florencia de Mora", "Huanchaco", "La Esperanza", "Laredo", "Moche", "Víctor Larco"],
-      Ascope: ["Ascope", "Chicama", "Chocope", "Magdalena de Cao", "Paiján"],
-      Pacasmayo: ["San Pedro de Lloc", "Guadalupe", "Jequetepeque", "Pacasmayo", "San José"],
-    },
-  },
-};
+async function copyText(value: string): Promise<boolean> {
+  if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+    return false;
+  }
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-const CASERIOS_MAP: Record<string, string[]> = {
-  Catacaos: ["CP El Molino", "Monte Sullón", "Simbilá", "Narihualá", "Pedregal Grande", "Pedregal Chico"],
-  "Cura Mori": ["Cucungará", "Nuevo Pozo de los Ramos", "Santa Rosa", "San Pedro"],
-  Castilla: ["Miraflores", "Tacalá", "El Indio", "Chiclayito"],
-  Chulucanas: ["Batanes", "Yapatera", "La Encantada", "Sol Sol"],
-  Tumbes: ["Puerto Pizarro", "Puyango", "San Juan de la Virgen"],
-  Íllimo: ["La Zaranda", "El Puente", "Las Juntas"],
-};
-
-export function RegistroTacticoTab() {
+export function RegistroTacticoTab({
+  centros: centrosProp,
+  currentUser: currentUserProp,
+  initialCentroId = null,
+  onIncidentCreated,
+}: RegistroTacticoTabProps) {
   const compId = useId();
+  const todayKey = useMemo(() => toLimaDateKey(new Date()), []);
+  const schema = useMemo(() => createIncidenciaSchema({ today: todayKey }), [todayKey]);
 
-  // Stepper State
-  const [activeStep, setActiveStep] = useState<number>(2);
+  const [loadedCentros, setLoadedCentros] = useState<readonly CentroPoblado[]>([]);
+  const [sessionUser, setSessionUser] = useState<UserProfile | null>(null);
 
-  // Header State
-  // The audit code is allocated by the backend when the incident is registered, so a
-  // draft has none. Keep it absent instead of showing a sequential code that does not
-  // exist in the system; the timestamp stays empty until the operator syncs the GPS.
-  const [syncTimestamp, setSyncTimestamp] = useState<string | null>(null);
-  const [lastNotification, setLastNotification] = useState<string | null>(null);
+  const centros = useMemo(
+    () => (centrosProp && centrosProp.length > 0 ? centrosProp : loadedCentros),
+    [centrosProp, loadedCentros],
+  );
+  const resolvedUser = currentUserProp ?? sessionUser;
 
-  // Module A State
+  // Stepper & Feedback
+  const [activeStep, setActiveStep] = useState<number>(1);
+  const [banner, setBanner] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Module A: Source, date & phenomenon
   const [reportingChannel, setReportingChannel] = useState("bgan");
-  const [phenomenon, setPhenomenon] = useState<PhenomenonType>("fluvial");
+  const [tipoAfectacion, setTipoAfectacion] = useState<TipoAfectacion>("inundacion");
+  const [ocurrioHoy, setOcurrioHoy] = useState(true);
+  const [fechaSuceso, setFechaSuceso] = useState(todayKey);
 
-  // Module B State
-  const [selectedRegion, setSelectedRegion] = useState("Piura");
-  const [selectedProvincia, setSelectedProvincia] = useState("Piura");
-  const [selectedDistrito, setSelectedDistrito] = useState("Catacaos");
-  const [selectedCaserio, setSelectedCaserio] = useState("CP El Molino");
-  const [latitude, setLatitude] = useState("-5.2654");
-  const [longitude, setLongitude] = useState("-80.6782");
-  const [altitude, setAltitude] = useState("29 msnm (±0.8m)");
-  const [utmZone, setUtmZone] = useState("17M / 540821E 9425881N");
-  const [gpsAccuracy, setGpsAccuracy] = useState("±2.4m");
-  const [activeMapLayer, setActiveMapLayer] = useState<"satelite" | "topografia" | "inundacion">("inundacion");
+  // Module B: Real CentroPoblado cascade & GPS
+  const [selectedRegion, setSelectedRegion] = useState("all");
+  const [selectedSector, setSelectedSector] = useState("all");
+  const [centroPobladoId, setCentroPobladoId] = useState(initialCentroId ?? "");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const [gpsFormatted, setGpsFormatted] = useState("");
+  const [gpsStatus, setGpsStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
+  const [gpsAccuracyLabel, setGpsAccuracyLabel] = useState<string | null>(null);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [syncTimestamp, setSyncTimestamp] = useState<string | null>(null);
+  const [activeMapLayer, setActiveMapLayer] = useState<"satelite" | "topografia" | "cuencas">("cuencas");
 
-  // Module C State (EDAN Counters)
-  const [familiasAfectadas, setFamiliasAfectadas] = useState(110);
-  const [damnificadosDirectos, setDamnificadosDirectos] = useState(480);
-  const [menoresLactantes, setMenoresLactantes] = useState(85);
-  const [adultosMayores, setAdultosMayores] = useState(34);
-  const [transitability, setTransitability] = useState<"4x4" | "aerea" | "bloqueada" | "aislado">("aislado");
+  // Duplicate check
+  const [duplicate, setDuplicate] = useState<DuplicateCheckResult | null>(null);
+  const [duplicateLoading, setDuplicateLoading] = useState(false);
+  const duplicateRequestRef = useRef(0);
 
-  // Basic Services Checklist
-  const [servicesState, setServicesState] = useState({
-    sinAgua: true,
-    sinLuz: true,
-    sinCobertura: true,
-    colapsoDesague: false,
-    saludAfectado: true,
-  });
+  // Module C: Quantitative impact & main need
+  const [hogaresAfectados, setHogaresAfectados] = useState(0);
+  const [necesidadPrincipal, setNecesidadPrincipal] =
+    useState<NecesidadPrincipal>("agua_potable");
+  const [transitability, setTransitability] = useState<TacticalTransitability>("4x4");
+  const [servicesAffected, setServicesAffected] = useState<string[]>([]);
+  const [notaReferencia, setNotaReferencia] = useState("");
 
-  // Right Panel State (Multimedia & Dispatch)
-  const [uploadedFiles, setUploadedFiles] = useState([
-    { id: "f1", name: "Desborde_río_Piura_km12.jpg", size: "1.8 MB", verified: true },
-    { id: "f2", name: "Corte_terraplen_acceso.jpg", size: "2.1 MB", verified: true },
-  ]);
-  const [droneStreamActive, setDroneStreamActive] = useState(true);
-  const [brigadeDispatchEnabled, setBrigadeDispatchEnabled] = useState(true);
-  const [selectedBrigadeUnit, setSelectedBrigadeUnit] = useState("bravo-3");
+  // Drafts & Submission state
+  const [drafts, setDrafts] = useState<TacticalDraft[]>([]);
+  const [activeDraftId, setActiveDraftId] = useState<string | undefined>(undefined);
+  const [draftDrawerOpen, setDraftDrawerOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [createdIncident, setCreatedIncident] = useState<Incidencia | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
 
-  const [requestedEquipment, setRequestedEquipment] = useState({
-    motobombas: true,
-    boteZodiac: true,
-    sacosTerreros: true,
-    racionesAgua: true,
-  });
+  // Load fallback centros, active user session, and cached drafts on mount
+  useEffect(() => {
+    let active = true;
+    const container = getContainer();
 
-  // Handlers
-  const handleRefreshGps = () => {
-    const latOffset = (Math.random() - 0.5) * 0.02;
-    const lngOffset = (Math.random() - 0.5) * 0.02;
-    setLatitude((-5.2654 + latOffset).toFixed(4));
-    setLongitude((-80.6782 + lngOffset).toFixed(4));
-    setGpsAccuracy(`±${(1.8 + Math.random() * 1.5).toFixed(1)}m`);
-    setSyncTimestamp(
-      new Date().toLocaleString("es-PE", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }) + " -05",
+    if (!centrosProp || centrosProp.length === 0) {
+      void container.centroPobladoRepository.listAll().then((list) => {
+        if (active) setLoadedCentros(list);
+      });
+    }
+
+    if (currentUserProp === undefined) {
+      void container.authRepository.restoreSession().then((profile) => {
+        if (active) setSessionUser(profile);
+      });
+    }
+
+    setDrafts(container.useCases.tacticalDrafts.listDrafts());
+
+    return () => {
+      active = false;
+    };
+  }, [centrosProp, currentUserProp]);
+
+  const checkDuplicateForCentro = useCallback(async (id: string) => {
+    if (!id) {
+      setDuplicate(null);
+      setDuplicateLoading(false);
+      return;
+    }
+    const reqId = duplicateRequestRef.current + 1;
+    duplicateRequestRef.current = reqId;
+    setDuplicateLoading(true);
+    const res = await getContainer().useCases.checkDuplicate.execute({
+      centroPobladoId: id,
+      now: new Date(),
+    });
+    if (duplicateRequestRef.current !== reqId) return;
+    setDuplicateLoading(false);
+    setDuplicate(res.ok ? res.value : null);
+  }, []);
+
+  // Preselect initialCentroId when triggered from Incidencias de Campo
+  useEffect(() => {
+    if (!initialCentroId || centros.length === 0) return;
+    const target = centros.find((c) => c.id === initialCentroId);
+    if (!target) return;
+    setSelectedRegion(target.region);
+    setSelectedSector(target.sector);
+    setCentroPobladoId(target.id);
+    setActiveStep(2);
+    void checkDuplicateForCentro(target.id);
+  }, [centros, checkDuplicateForCentro, initialCentroId]);
+
+  const availableRegions = useMemo(
+    () => [...new Set(centros.map((c) => c.region))].sort(),
+    [centros],
+  );
+
+  const availableSectors = useMemo(() => {
+    const matching =
+      selectedRegion === "all"
+        ? centros
+        : centros.filter((c) => c.region === selectedRegion);
+    return [...new Set(matching.map((c) => c.sector))].sort();
+  }, [centros, selectedRegion]);
+
+  const filteredCentros = useMemo(() => {
+    return centros.filter((c) => {
+      if (selectedRegion !== "all" && c.region !== selectedRegion) return false;
+      if (selectedSector !== "all" && c.sector !== selectedSector) return false;
+      return true;
+    });
+  }, [centros, selectedRegion, selectedSector]);
+
+  const selectedCentro = useMemo(
+    () => centros.find((c) => c.id === centroPobladoId) ?? null,
+    [centros, centroPobladoId],
+  );
+
+  const parsedMapPoint = useMemo(() => {
+    const parsed = parseGpsCoords(gpsFormatted);
+    if (!parsed) return null;
+    return {
+      parsed,
+      projected: projectPeruCoordsToPercent(parsed),
+    };
+  }, [gpsFormatted]);
+
+  const handleRegionChange = (region: string) => {
+    setSelectedRegion(region);
+    setSelectedSector("all");
+    if (centroPobladoId) {
+      const stillMatches = centros.some(
+        (c) => c.id === centroPobladoId && (region === "all" || c.region === region),
+      );
+      if (!stillMatches) {
+        setCentroPobladoId("");
+        setDuplicate(null);
+      }
+    }
+  };
+
+  const handleSectorChange = (sector: string) => {
+    setSelectedSector(sector);
+    if (centroPobladoId) {
+      const stillMatches = centros.some(
+        (c) =>
+          c.id === centroPobladoId &&
+          (selectedRegion === "all" || c.region === selectedRegion) &&
+          (sector === "all" || c.sector === sector),
+      );
+      if (!stillMatches) {
+        setCentroPobladoId("");
+        setDuplicate(null);
+      }
+    }
+  };
+
+  const handleSelectCentro = (id: string) => {
+    setCentroPobladoId(id);
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.centroPobladoId;
+      return next;
+    });
+    const chosen = centros.find((c) => c.id === id);
+    if (chosen) {
+      setSelectedRegion(chosen.region);
+      setSelectedSector(chosen.sector);
+    }
+    void checkDuplicateForCentro(id);
+  };
+
+  const handleFetchGps = async () => {
+    setGpsStatus("loading");
+    setGpsError(null);
+    setGpsAccuracyLabel(null);
+    const res = await getContainer().gpsService.getCurrentPosition();
+    if (res.ok) {
+      setLatitude(res.value.latitude.toFixed(5));
+      setLongitude(res.value.longitude.toFixed(5));
+      setGpsFormatted(res.value.formatted);
+      setGpsAccuracyLabel(formatAccuracy(res.value.accuracy));
+      setGpsStatus("ok");
+      setSyncTimestamp(
+        new Date().toLocaleString("es-PE", {
+          timeZone: "America/Lima",
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }),
+      );
+      return;
+    }
+    setGpsStatus("error");
+    setGpsError(res.error.message);
+  };
+
+  const handleManualCoordsChange = (nextLat: string, nextLng: string) => {
+    setLatitude(nextLat);
+    setLongitude(nextLng);
+    setGpsError(null);
+    setGpsAccuracyLabel(null);
+    const manual = formatManualGpsCoords(nextLat, nextLng);
+    setGpsFormatted(manual ?? "");
+    setGpsStatus(manual ? "ok" : "idle");
+  };
+
+  const handleToggleService = (serviceId: string) => {
+    setServicesAffected((prev) =>
+      prev.includes(serviceId)
+        ? prev.filter((item) => item !== serviceId)
+        : [...prev, serviceId],
     );
   };
 
-  const handleRegionChange = (reg: string) => {
-    setSelectedRegion(reg);
-    const provincias = Object.keys(GEOGRAPHIC_DATA[reg]?.provincias ?? {});
-    const firstProv = provincias[0] ?? "";
-    setSelectedProvincia(firstProv);
-    const distritos = GEOGRAPHIC_DATA[reg]?.provincias[firstProv] ?? [];
-    const firstDist = distritos[0] ?? "";
-    setSelectedDistrito(firstDist);
-    const caserios = CASERIOS_MAP[firstDist] ?? ["Centro Poblado Principal"];
-    setSelectedCaserio(caserios[0] ?? "Zona Centro");
-  };
-
-  const handleProvinciaChange = (prov: string) => {
-    setSelectedProvincia(prov);
-    const distritos = GEOGRAPHIC_DATA[selectedRegion]?.provincias[prov] ?? [];
-    const firstDist = distritos[0] ?? "";
-    setSelectedDistrito(firstDist);
-    const caserios = CASERIOS_MAP[firstDist] ?? ["Centro Poblado Principal"];
-    setSelectedCaserio(caserios[0] ?? "Zona Centro");
-  };
-
-  const handleDistritoChange = (dist: string) => {
-    setSelectedDistrito(dist);
-    const caserios = CASERIOS_MAP[dist] ?? ["Sector Central", "Zona Rural Alta"];
-    setSelectedCaserio(caserios[0] ?? "Sector Central");
-  };
-
-  const handleRemoveFile = (id: string) => {
-    setUploadedFiles((prev) => prev.filter((f) => f.id !== id));
-  };
-
-  const handleRegisterIncident = () => {
-    setLastNotification(`Incidencia registrada en la red COEN/INDECI. Brigada ${selectedBrigadeUnit.toUpperCase()} notificada. El código de auditoría se asigna al confirmar el registro.`);
+  const handleAppendAccessContextToNote = () => {
+    const accessLabel =
+      TRANSITABILITY_OPTIONS.find((opt) => opt.id === transitability)?.label ?? transitability;
+    const serviceLabels = VITAL_SERVICES.filter((srv) => servicesAffected.includes(srv.id)).map(
+      (srv) => srv.label,
+    );
+    const snippet =
+      serviceLabels.length > 0
+        ? `Acceso: ${accessLabel}. Servicios afectados: ${serviceLabels.join(", ")}.`
+        : `Acceso: ${accessLabel}.`;
+    const merged = notaReferencia.trim() ? `${notaReferencia.trim()} ${snippet}` : snippet;
+    setNotaReferencia(merged.slice(0, 280));
   };
 
   const handleSaveDraft = () => {
-    setLastNotification("Borrador guardado en el cache local seguro (IndexedDB/LocalStorage cifrado AES-256).");
+    const { drafts: nextDrafts } = getContainer().useCases.tacticalDrafts.saveDraft({
+      id: activeDraftId,
+      centroPobladoId,
+      tipoAfectacion,
+      necesidadPrincipal,
+      hogaresAfectados,
+      ocurrioHoy,
+      fechaSuceso,
+      gpsCoords: gpsFormatted,
+      notaReferencia,
+      reportingChannel,
+      transitability,
+      servicesAffected,
+    });
+    setDrafts(nextDrafts);
+    if (nextDrafts[0]) {
+      setActiveDraftId(nextDrafts[0].id);
+    }
+    setBanner({
+      kind: "ok",
+      text: "Borrador guardado en caché local del navegador.",
+    });
   };
 
-  const handleEmitSismate = () => {
-    setLastNotification(`¡ALERTA SISMATE ENVIADA! Mensaje de alerta celular emitido a 12,450 terminales en el cuadrante de Catacaos.`);
+  const handleLoadDraft = (draft: TacticalDraft) => {
+    setActiveDraftId(draft.id);
+    setTipoAfectacion(draft.tipoAfectacion);
+    setNecesidadPrincipal(draft.necesidadPrincipal);
+    setHogaresAfectados(draft.hogaresAfectados);
+    setOcurrioHoy(draft.ocurrioHoy);
+    setFechaSuceso(draft.fechaSuceso);
+    setReportingChannel(draft.reportingChannel);
+    setTransitability(draft.transitability);
+    setServicesAffected(draft.servicesAffected);
+    setNotaReferencia(draft.notaReferencia);
+    setGpsFormatted(draft.gpsCoords);
+
+    const parsed = parseGpsCoords(draft.gpsCoords);
+    if (parsed) {
+      setLatitude(parsed.latitude.toFixed(5));
+      setLongitude(parsed.longitude.toFixed(5));
+      setGpsAccuracyLabel(
+        parsed.accuracyMeters !== null ? formatAccuracy(parsed.accuracyMeters) : null,
+      );
+      setGpsStatus("ok");
+    } else {
+      setLatitude("");
+      setLongitude("");
+      setGpsStatus("idle");
+      setGpsAccuracyLabel(null);
+    }
+
+    handleSelectCentro(draft.centroPobladoId);
+    setDraftDrawerOpen(false);
+    setFieldErrors({});
+    setBanner({
+      kind: "ok",
+      text: "Borrador local cargado en el formulario.",
+    });
   };
+
+  const handleDeleteDraft = (id: string) => {
+    const nextDrafts = getContainer().useCases.tacticalDrafts.removeDraft(id);
+    setDrafts(nextDrafts);
+    if (activeDraftId === id) {
+      setActiveDraftId(undefined);
+    }
+  };
+
+  const handleResetForm = () => {
+    setActiveDraftId(undefined);
+    setTipoAfectacion("inundacion");
+    setNecesidadPrincipal("agua_potable");
+    setOcurrioHoy(true);
+    setFechaSuceso(todayKey);
+    setSelectedRegion("all");
+    setSelectedSector("all");
+    setCentroPobladoId("");
+    setLatitude("");
+    setLongitude("");
+    setGpsFormatted("");
+    setGpsStatus("idle");
+    setGpsAccuracyLabel(null);
+    setGpsError(null);
+    setSyncTimestamp(null);
+    setDuplicate(null);
+    setHogaresAfectados(0);
+    setTransitability("4x4");
+    setServicesAffected([]);
+    setNotaReferencia("");
+    setFieldErrors({});
+    setCreatedIncident(null);
+    setCopiedCode(false);
+    setBanner(null);
+    setActiveStep(1);
+  };
+
+  const handleSubmitIncident = async () => {
+    setBanner(null);
+    setFieldErrors({});
+
+    if (!resolvedUser) {
+      setBanner({
+        kind: "error",
+        text: "Debes mantener una sesión activa para registrar incidencias.",
+      });
+      return;
+    }
+
+    if ((latitude.trim() || longitude.trim()) && !gpsFormatted) {
+      setFieldErrors({
+        gpsCoords: "Ingresa ambas coordenadas WGS84 válidas (latitud y longitud) o déjalas vacías.",
+      });
+      setBanner({
+        kind: "error",
+        text: "Revisa las coordenadas GPS ingresadas manualmente.",
+      });
+      setActiveStep(2);
+      return;
+    }
+
+    const rawPayload = {
+      centroPobladoId,
+      tipoAfectacion,
+      hogaresAfectados,
+      necesidadPrincipal,
+      ocurrioHoy,
+      fechaSuceso,
+      gpsCoords: gpsFormatted || null,
+      notaReferencia: notaReferencia || null,
+    };
+
+    const parsed = schema.safeParse(rawPayload);
+    if (!parsed.success) {
+      const nextErrors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0] ? String(issue.path[0]) : "form";
+        if (!nextErrors[key]) nextErrors[key] = issue.message;
+      }
+      setFieldErrors(nextErrors);
+      setBanner({
+        kind: "error",
+        text: Object.values(nextErrors)[0] ?? "Completa los campos obligatorios antes de registrar.",
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    const result = await getContainer().useCases.createIncidencia.execute({
+      values: parsed.data,
+      creadoPor: resolvedUser.id,
+    });
+    setSubmitting(false);
+
+    if (!result.ok) {
+      setFieldErrors(result.error.fieldErrors ?? {});
+      setBanner({
+        kind: "error",
+        text: result.error.message,
+      });
+      return;
+    }
+
+    if (activeDraftId) {
+      setDrafts(getContainer().useCases.tacticalDrafts.removeDraft(activeDraftId));
+      setActiveDraftId(undefined);
+    }
+
+    setCreatedIncident(result.value);
+    setCopiedCode(false);
+    setActiveStep(4);
+    setBanner({
+      kind: "ok",
+      text: `Incidencia registrada con código oficial ${result.value.codigoAuditoria}.`,
+    });
+    await checkDuplicateForCentro(result.value.centroPobladoId);
+    await onIncidentCreated?.(result.value);
+  };
+
+  const step1Done = Boolean(tipoAfectacion && reportingChannel);
+  const step2Done = centroPobladoId.trim().length > 0;
+  const step3Done =
+    Number.isInteger(hogaresAfectados) &&
+    hogaresAfectados >= 0 &&
+    fechaSuceso.length > 0 &&
+    Boolean(necesidadPrincipal);
+  const step4Done = createdIncident !== null;
 
   return (
     <div className="space-y-6">
-      {/* Tactical Command Header */}
+      {/* Header */}
       <header className="rounded-xl bg-white p-6 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold tracking-wider text-brand-blue">
               <Shield className="h-3.5 w-3.5 text-ladp-orange" />
-              <span>Comando Operativo / Registro Táctico de Incidencias en Campo</span>
+              <span>Comando Operativo / Registro Táctico de Incidencias</span>
             </div>
             <p className="text-[11px] font-bold uppercase tracking-widest text-ladp-orange">
-              PROTOCOLO EDAN PERÚ — FORMULARIO DE EVALUACIÓN RÁPIDA
+              PROTOCOLO EDAN PERÚ — REGISTRO DIRECTO DE JEFATURA
             </p>
-            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-brand-ink">
+            <h2 className="text-xl font-bold tracking-tight text-brand-ink sm:text-2xl lg:text-3xl">
               REGISTRO TÁCTICO DE INCIDENCIA DE CAMPO
             </h2>
-            <p className="max-w-3xl text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
-              Ingreso inmediato de reportes georreferenciados, evaluación preliminar de severidad
-              hidrometeorológica, asignación de cuadrante y despacho de recursos de respuesta rápida
-              ante el Fenómeno El Niño 2026.
+            <p className="max-w-3xl text-xs font-medium leading-relaxed text-slate-500 sm:text-sm">
+              Ingreso estructurado sobre el catálogo nacional de centros poblados, detección de
+              duplicados en los últimos 7 días, captura GPS del navegador y asignación de código de
+              auditoría inmutable.
             </p>
           </div>
 
-          {/* Quick Action / Telemetry Header Box */}
-          <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 shrink-0">
-            {/* SAT Telemetry pill */}
+          <div className="flex shrink-0 flex-col gap-2.5 sm:flex-row lg:flex-col">
             <div className="flex items-center justify-between gap-3 rounded-lg bg-brand-mist px-3.5 py-2">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                </span>
-                <span className="text-xs font-bold text-brand-positive">Telemetría SAT En Línea</span>
-              </div>
-              <span className="font-mono text-[11px] text-slate-500">(BGAN/Starlink)</span>
+              <span className="text-xs font-bold text-brand-ink">
+                {resolvedUser ? resolvedUser.nombre : "Sin sesión"}
+              </span>
+              <span className="font-mono text-[11px] font-semibold text-brand-blue">
+                {resolvedUser ? resolvedUser.identificadorOficial : "--"}
+              </span>
             </div>
 
-            {/* Audit code: allocated by the backend on registration, never faked here. */}
             <div className="flex items-center justify-between gap-2 rounded-lg bg-brand-mist px-3.5 py-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Código de auditoría
               </span>
-              <span className="font-mono text-[11px] font-bold text-slate-700">
-                Pendiente de asignación
-              </span>
+              {createdIncident ? (
+                <div className="flex items-center gap-1.5">
+                  <span
+                    data-testid="codigo-auditoria"
+                    className="font-mono text-xs font-bold text-brand-positive"
+                  >
+                    {createdIncident.codigoAuditoria}
+                  </span>
+                  <button
+                    type="button"
+                    data-testid="copy-codigo"
+                    onClick={async () => {
+                      const ok = await copyText(createdIncident.codigoAuditoria);
+                      if (ok) setCopiedCode(true);
+                    }}
+                    className="rounded p-1 text-brand-blue hover:bg-brand-soft"
+                    title="Copiar código"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                  {copiedCode ? (
+                    <span className="text-[10px] font-bold text-brand-positive">Copiado</span>
+                  ) : null}
+                </div>
+              ) : (
+                <span className="font-mono text-[11px] font-bold text-slate-700">
+                  Pendiente de asignación
+                </span>
+              )}
             </div>
 
-            {/* Drafts indicator */}
             <button
               type="button"
               data-testid="test-load-draft"
-              onClick={handleSaveDraft}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-soft px-3.5 py-2 text-xs font-bold text-brand-blue hover:bg-brand-blue hover:text-white transition-colors"
+              onClick={() => setDraftDrawerOpen((open) => !open)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-soft px-3.5 py-2 text-xs font-bold text-brand-blue transition-colors hover:bg-brand-blue hover:text-white"
             >
               <History className="h-3.5 w-3.5" />
-              <span>Cargar Borrador Local (3 pendientes)</span>
+              <span>Borradores locales ({drafts.length})</span>
             </button>
           </div>
         </div>
 
-        {/* Global Notification Banner if action clicked */}
-        {lastNotification ? (
+        {/* Saved drafts drawer */}
+        {draftDrawerOpen ? (
           <div
-            role="status"
-            className="mt-4 flex items-center justify-between gap-3 rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs font-semibold text-emerald-800"
+            data-testid="drafts-panel"
+            className="mt-4 rounded-xl bg-brand-mist p-4 text-xs"
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <span className="font-bold text-brand-ink">
+                Borradores guardados en caché local ({drafts.length})
+              </span>
+              <button
+                type="button"
+                onClick={() => setDraftDrawerOpen(false)}
+                className="rounded px-2 py-0.5 text-slate-500 hover:bg-white hover:text-brand-ink"
+              >
+                Cerrar
+              </button>
+            </div>
+            {drafts.length === 0 ? (
+              <p className="font-medium text-slate-500">
+                No hay borradores locales guardados. Usa &quot;Guardar Borrador Local&quot; para
+                conservar un avance antes de registrarlo.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {drafts.map((draft) => {
+                  const centro = centros.find((c) => c.id === draft.centroPobladoId);
+                  return (
+                    <li
+                      key={draft.id}
+                      data-testid="draft-item"
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-bold text-brand-ink">
+                          {centro ? `${centro.nombre} (${centro.region})` : "Sin centro poblado"}{" "}
+                          · {labelForTipoAfectacion(draft.tipoAfectacion)}
+                        </p>
+                        <p className="text-[11px] font-medium text-slate-500">
+                          {formatCount(draft.hogaresAfectados)} hogares ·{" "}
+                          {labelForNecesidad(draft.necesidadPrincipal)} · {draft.fechaSuceso}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleLoadDraft(draft)}
+                          className="rounded-lg bg-brand-blue px-2.5 py-1 text-[11px] font-bold text-white hover:bg-brand-deep"
+                        >
+                          Cargar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDraft(draft.id)}
+                          aria-label="Eliminar borrador"
+                          className="rounded-lg bg-rose-50 p-1.5 text-brand-negative hover:bg-rose-100"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        ) : null}
+
+        {banner ? (
+          <div
+            role={banner.kind === "error" ? "alert" : "status"}
+            className={`mt-4 flex items-center justify-between gap-3 rounded-lg border p-3 text-xs font-semibold ${
+              banner.kind === "error"
+                ? "border-rose-200 bg-rose-50 text-brand-negative"
+                : "border-emerald-200 bg-emerald-50 text-emerald-800"
+            }`}
           >
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-brand-positive shrink-0" />
-              <span>{lastNotification}</span>
+              {banner.kind === "error" ? (
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-positive" />
+              )}
+              <span>{banner.text}</span>
             </div>
             <button
               type="button"
-              onClick={() => setLastNotification(null)}
-              className="rounded p-1 hover:bg-emerald-100 text-emerald-700"
+              aria-label="Cerrar notificación"
+              onClick={() => setBanner(null)}
+              className="rounded p-1 hover:bg-black/5"
             >
               ✕
             </button>
@@ -354,152 +735,107 @@ export function RegistroTacticoTab() {
         ) : null}
       </header>
 
-      {/* 4-Step Stepper Bar */}
-      <nav aria-label="Progreso del formulario táctico" className="rounded-xl bg-white p-3 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
-        <ol className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-          <li
-            data-testid="test-step-1"
-            onClick={() => setActiveStep(1)}
-            className={`cursor-pointer rounded-lg p-3 flex items-center gap-3 transition-all border ${
-              activeStep === 1
-                ? "bg-brand-soft border-brand-blue text-brand-ink"
-                : "border-transparent bg-brand-mist/60 hover:bg-brand-mist text-slate-500"
-            }`}
-          >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-positive text-white font-bold text-xs">
-              <Check className="h-4 w-4 stroke-[3]" />
-            </div>
-            <div className="min-w-0">
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-brand-positive">
-                Paso 1 · Validado
-              </span>
-              <span className="block truncate text-xs font-bold text-brand-ink">
-                Datos de Fuente y Brigada
-              </span>
-            </div>
-          </li>
-
-          <li
-            data-testid="test-step-2"
-            onClick={() => setActiveStep(2)}
-            className={`cursor-pointer rounded-lg p-3 flex items-center gap-3 transition-all border ${
-              activeStep === 2
-                ? "bg-brand-blue text-white border-brand-blue shadow-xs"
-                : "border-transparent bg-brand-mist/60 hover:bg-brand-mist text-slate-500"
-            }`}
-          >
-            <div
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-bold text-xs ${
-                activeStep === 2 ? "bg-white text-brand-blue" : "bg-brand-soft text-brand-blue"
-              }`}
-            >
-              2
-            </div>
-            <div className="min-w-0">
-              <span
-                className={`block text-[11px] font-bold uppercase tracking-wider ${
-                  activeStep === 2 ? "text-blue-100" : "text-brand-blue"
-                }`}
-              >
-                Paso 2 · En Curso
-              </span>
-              <span
-                className={`block truncate text-xs font-bold ${
-                  activeStep === 2 ? "text-white" : "text-brand-ink"
-                }`}
-              >
-                Georreferenciación y Cuadrante
-              </span>
-            </div>
-          </li>
-
-          <li
-            data-testid="test-step-3"
-            onClick={() => setActiveStep(3)}
-            className={`cursor-pointer rounded-lg p-3 flex items-center gap-3 transition-all border ${
-              activeStep === 3
-                ? "bg-brand-soft border-brand-blue text-brand-ink"
-                : "border-transparent bg-brand-mist/60 hover:bg-brand-mist text-slate-500"
-            }`}
-          >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-200 text-brand-ink font-bold text-xs">
-              3
-            </div>
-            <div className="min-w-0">
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Paso 3 · Pendiente
-              </span>
-              <span className="block truncate text-xs font-bold text-brand-ink">
-                Evaluación EDAN y Población
-              </span>
-            </div>
-          </li>
-
-          <li
-            data-testid="test-step-4"
-            onClick={() => setActiveStep(4)}
-            className={`cursor-pointer rounded-lg p-3 flex items-center gap-3 transition-all border ${
-              activeStep === 4
-                ? "bg-brand-soft border-brand-blue text-brand-ink"
-                : "border-transparent bg-brand-mist/60 hover:bg-brand-mist text-slate-500"
-            }`}
-          >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-200 text-brand-ink font-bold text-xs">
-              4
-            </div>
-            <div className="min-w-0">
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Paso 4 · Pendiente
-              </span>
-              <span className="block truncate text-xs font-bold text-brand-ink">
-                Evidencia y Despacho
-              </span>
-            </div>
-          </li>
+      {/* 4-Step Progress Bar */}
+      <nav
+        aria-label="Progreso del formulario táctico"
+        className="rounded-xl bg-white p-3 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]"
+      >
+        <ol className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { step: 1, title: "Fuente y Afectación", done: step1Done },
+            { step: 2, title: "Centro Poblado y GPS", done: step2Done },
+            { step: 3, title: "Evaluación EDAN", done: step3Done },
+            { step: 4, title: "Registro y Código INC", done: step4Done },
+          ].map(({ step, title, done }) => {
+            const isCurrent = activeStep === step;
+            return (
+              <li key={step}>
+                <button
+                  type="button"
+                  data-testid={`test-step-${step}`}
+                  onClick={() => setActiveStep(step)}
+                  className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
+                    isCurrent
+                      ? "border-brand-blue bg-brand-blue text-white shadow-xs"
+                      : done
+                        ? "border-transparent bg-brand-soft/60 text-brand-ink hover:bg-brand-soft"
+                        : "border-transparent bg-brand-mist/60 text-slate-500 hover:bg-brand-mist"
+                  }`}
+                >
+                  <span
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
+                      isCurrent
+                        ? "bg-white text-brand-blue"
+                        : done
+                          ? "bg-brand-positive text-white"
+                          : "bg-slate-200 text-brand-ink"
+                    }`}
+                  >
+                    {done && !isCurrent ? <Check className="h-4 w-4 stroke-[3]" /> : step}
+                  </span>
+                  <div className="min-w-0">
+                    <span
+                      className={`block text-[10px] font-bold uppercase tracking-wider ${
+                        isCurrent
+                          ? "text-blue-100"
+                          : done
+                            ? "text-brand-positive"
+                            : "text-slate-500"
+                      }`}
+                    >
+                      Paso {step} · {done ? "Listo" : "Pendiente"}
+                    </span>
+                    <span className="block truncate text-xs font-bold">{title}</span>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
         </ol>
       </nav>
 
-      {/* Main 2-Column Grid: Form Sections (Left) & Support Panel (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Form Modules (8 Cols) */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* Módulo A: Identificación de la Fuente y Tipo de Evento */}
-          <section className="rounded-xl bg-white p-5 sm:p-6 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] space-y-5">
+      {/* Main 2-Column Grid */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Left Form Column (8 cols) */}
+        <div className="space-y-6 lg:col-span-8">
+          {/* Module A */}
+          <section className="space-y-5 rounded-xl bg-white p-5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-blue text-white text-xs font-bold">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-blue text-xs font-bold text-white">
                   A
                 </span>
-                <h3 className="text-sm sm:text-base font-bold text-brand-ink">
-                  Identificación de la Fuente y Tipo de Evento
+                <h3 className="text-sm font-bold text-brand-ink sm:text-base">
+                  Identificación de Fuente, Fecha y Tipo de Afectación
                 </h3>
               </div>
-              <span className="rounded-full bg-rose-50 text-brand-negative px-2.5 py-0.5 text-[11px] font-bold uppercase">
-                Prioridad Alta
+              <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-[11px] font-bold uppercase text-brand-blue">
+                Paso 1
               </span>
             </div>
 
-            {/* Officer, Channel & Sync Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
-              {/* Informant */}
-              <div className="md:col-span-4 space-y-1.5 rounded-xl bg-brand-mist p-3.5">
+            <div className="grid grid-cols-1 gap-3.5 md:grid-cols-12">
+              <div className="space-y-1.5 rounded-xl bg-brand-mist p-3.5 md:col-span-4">
                 <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
-                  <span>Oficial Informante</span>
-                  <span className="inline-flex items-center gap-1 text-brand-positive font-bold">
-                    <UserCheck className="h-3 w-3" /> Verificado
+                  <span>Informante</span>
+                  <span className="inline-flex items-center gap-1 font-bold text-brand-positive">
+                    <UserCheck className="h-3 w-3" /> Activo
                   </span>
                 </div>
-                <p className="text-xs font-bold text-brand-ink">Cmdte. Manuel Vásquez T.</p>
-                <p className="text-[11px] text-slate-500 font-medium">Patrulla Táctica Bravo-3</p>
+                <p className="text-xs font-bold text-brand-ink">
+                  {resolvedUser?.nombre ?? "Sesión requerida"}
+                </p>
+                <p className="text-[11px] font-medium text-slate-500">
+                  {resolvedUser ? USER_ROLE_LABELS[resolvedUser.rol] : "--"}
+                </p>
               </div>
 
-              {/* Channel */}
-              <div className="md:col-span-5 space-y-1.5 rounded-xl bg-brand-mist p-3.5">
+              <div className="space-y-1.5 rounded-xl bg-brand-mist p-3.5 md:col-span-4">
                 <label
                   htmlFor={`${compId}-channel-select`}
                   className="block text-[11px] font-bold text-slate-500"
                 >
-                  Canal de Transmisión
+                  Canal de Reporte
                 </label>
                 <div className="relative">
                   <select
@@ -507,80 +843,91 @@ export function RegistroTacticoTab() {
                     data-testid="channel-select"
                     value={reportingChannel}
                     onChange={(e) => setReportingChannel(e.target.value)}
-                    className="w-full appearance-none rounded-lg bg-white border border-slate-200/80 py-1.5 pl-2.5 pr-7 text-xs font-semibold text-brand-ink focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+                    className="w-full appearance-none rounded-lg border border-slate-200/80 bg-white py-1.5 pl-2.5 pr-7 text-xs font-semibold text-brand-ink focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
                   >
-                    <option value="bgan">Terminal Satelital Móvil (BGAN)</option>
-                    <option value="radio">Radio HF/VHF Operacional (Red PNP)</option>
-                    <option value="movil">Formulario Móvil de Campo (Cache local)</option>
-                    <option value="fibra">Enlace Directo COER Piura (Enlace Fibra)</option>
+                    <option value="bgan">Enlace Satelital / Directo</option>
+                    <option value="radio">Radio HF / VHF Operacional</option>
+                    <option value="movil">Registro Móvil en Caché Local</option>
+                    <option value="fibra">Consola Web COER / Jefatura</option>
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 </div>
-                <p className="text-[10px] text-brand-positive font-bold">Cifrado Operativo FIPS 140-2</p>
               </div>
 
-              {/* Timestamp */}
-              <div className="md:col-span-3 space-y-1.5 rounded-xl bg-brand-mist p-3.5">
+              <div className="space-y-1.5 rounded-xl bg-brand-mist p-3.5 md:col-span-4">
                 <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
-                  <span>Marca de Tiempo</span>
-                  <span className="text-[10px] font-bold text-brand-blue">GPS Sync</span>
+                  <label htmlFor={`${compId}-fecha`}>Fecha del Suceso</label>
+                  <button
+                    type="button"
+                    data-testid="ocurrio-hoy-toggle"
+                    onClick={() => {
+                      const nextToday = !ocurrioHoy;
+                      setOcurrioHoy(nextToday);
+                      if (nextToday) {
+                        setFechaSuceso(todayKey);
+                      }
+                    }}
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                      ocurrioHoy
+                        ? "bg-brand-blue text-white"
+                        : "bg-white text-slate-600"
+                    }`}
+                  >
+                    {ocurrioHoy ? "Ocurrió hoy" : "Otra fecha"}
+                  </button>
                 </div>
-                <p className="text-xs font-mono font-bold text-brand-ink">
-                  {syncTimestamp ?? "Pendiente de sincronización GPS"}
-                </p>
-                <button
-                  type="button"
-                  onClick={handleRefreshGps}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-blue hover:underline"
-                >
-                  <RefreshCw className="h-3 w-3" /> Resincronizar RTC
-                </button>
+                <input
+                  id={`${compId}-fecha`}
+                  type="date"
+                  data-testid="fecha-suceso-input"
+                  value={fechaSuceso}
+                  max={todayKey}
+                  readOnly={ocurrioHoy}
+                  onChange={(e) => {
+                    setOcurrioHoy(e.target.value === todayKey);
+                    setFechaSuceso(e.target.value);
+                  }}
+                  className="w-full rounded-lg border border-slate-200/80 bg-white px-2.5 py-1.5 font-mono text-xs font-semibold text-brand-ink focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+                />
+                {fieldErrors.fechaSuceso ? (
+                  <p className="text-[11px] font-semibold text-brand-negative">
+                    {fieldErrors.fechaSuceso}
+                  </p>
+                ) : null}
               </div>
             </div>
 
-            {/* Phenomenon Type Selection Grid */}
+            {/* Tipo de Afectacion */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold uppercase tracking-wider text-brand-ink">
-                Tipo de Fenómeno Principal (Selección Obligatoria):
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                {PHENOMENON_OPTIONS.map((item) => {
-                  const Icon = item.icon;
-                  const isSelected = phenomenon === item.id;
+              <span className="block text-xs font-bold uppercase tracking-wider text-brand-ink">
+                Tipo de Afectación (Catálogo Oficial):
+              </span>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                {TIPO_AFECTACION_OPTIONS.map((item) => {
+                  const Icon = iconForAfectacion(item.value);
+                  const isSelected = tipoAfectacion === item.value;
                   return (
                     <button
-                      key={item.id}
+                      key={item.value}
                       type="button"
-                      data-testid={`phenomenon-${item.id}`}
-                      onClick={() => setPhenomenon(item.id)}
-                      className={`relative flex flex-col items-start gap-2 rounded-xl p-3 text-left transition-all border-2 ${
+                      data-testid={`phenomenon-${item.value}`}
+                      onClick={() => setTipoAfectacion(item.value)}
+                      className={`flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all ${
                         isSelected
                           ? "border-brand-blue bg-brand-soft/60 shadow-xs"
                           : "border-slate-200/80 bg-white hover:border-slate-300 hover:bg-brand-mist/50"
                       }`}
                     >
-                      <div className="flex w-full items-center justify-between">
-                        <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                            isSelected
-                              ? "bg-brand-blue text-white"
-                              : "bg-brand-mist text-brand-ink"
-                          }`}
-                        >
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <span className="rounded-full bg-brand-mist px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">
-                          {item.badge}
-                        </span>
+                      <div
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                          isSelected
+                            ? "bg-brand-blue text-white"
+                            : "bg-brand-mist text-brand-ink"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
                       </div>
-                      <div>
-                        <span className="block text-xs font-bold text-brand-ink">
-                          {item.title}
-                        </span>
-                        <span className="block text-[11px] text-slate-500 font-medium leading-tight mt-0.5">
-                          {item.description}
-                        </span>
-                      </div>
+                      <span className="text-xs font-bold text-brand-ink">{item.label}</span>
                     </button>
                   );
                 })}
@@ -588,37 +935,42 @@ export function RegistroTacticoTab() {
             </div>
           </section>
 
-          {/* Módulo B: Georreferenciación Precisa y Ubicación Territorial */}
-          <section className="rounded-xl bg-white p-5 sm:p-6 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] space-y-5">
+          {/* Module B */}
+          <section className="space-y-5 rounded-xl bg-white p-5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-blue text-white text-xs font-bold">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-blue text-xs font-bold text-white">
                   B
                 </span>
-                <h3 className="text-sm sm:text-base font-bold text-brand-ink">
-                  Georreferenciación Precisa y Ubicación Territorial
+                <h3 className="text-sm font-bold text-brand-ink sm:text-base">
+                  Centro Poblado y Georreferenciación WGS84
                 </h3>
               </div>
               <button
                 type="button"
                 data-testid="gps-btn"
-                onClick={handleRefreshGps}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-soft hover:bg-brand-blue text-brand-blue hover:text-white px-3 py-1.5 text-xs font-bold transition-colors"
+                disabled={gpsStatus === "loading"}
+                onClick={() => void handleFetchGps()}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-soft px-3 py-1.5 text-xs font-bold text-brand-blue transition-colors hover:bg-brand-blue hover:text-white disabled:opacity-60"
               >
                 <Crosshair className="h-3.5 w-3.5" />
-                <span>Obtener GPS Dispositivo ({gpsAccuracy})</span>
+                <span>
+                  {gpsStatus === "loading"
+                    ? "Obteniendo ubicación..."
+                    : gpsAccuracyLabel
+                      ? `Actualizar GPS (${gpsAccuracyLabel})`
+                      : "Obtener GPS Dispositivo"}
+                </span>
               </button>
             </div>
 
-            {/* Cascading Location Selects */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Region */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="space-y-1">
                 <label
                   htmlFor={`${compId}-region-select`}
                   className="block text-[11px] font-bold text-slate-500"
                 >
-                  Departamento / Región
+                  Región Operativa
                 </label>
                 <div className="relative">
                   <select
@@ -626,746 +978,582 @@ export function RegistroTacticoTab() {
                     data-testid="region-select"
                     value={selectedRegion}
                     onChange={(e) => handleRegionChange(e.target.value)}
-                    className="w-full appearance-none rounded-lg bg-brand-mist py-2 pl-3 pr-8 text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
+                    className="w-full appearance-none rounded-lg bg-brand-mist py-2 pl-3 pr-8 text-xs font-semibold text-brand-ink focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                   >
-                    {Object.keys(GEOGRAPHIC_DATA).map((reg) => (
+                    <option value="all">Todas las regiones ({centros.length} centros)</option>
+                    {availableRegions.map((reg) => (
                       <option key={reg} value={reg}>
                         {reg}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 </div>
               </div>
 
-              {/* Provincia */}
               <div className="space-y-1">
                 <label
-                  htmlFor={`${compId}-provincia-select`}
+                  htmlFor={`${compId}-sector-select`}
                   className="block text-[11px] font-bold text-slate-500"
                 >
-                  Provincia
+                  Sector / Cuenca
                 </label>
                 <div className="relative">
                   <select
-                    id={`${compId}-provincia-select`}
-                    data-testid="provincia-select"
-                    value={selectedProvincia}
-                    onChange={(e) => handleProvinciaChange(e.target.value)}
-                    className="w-full appearance-none rounded-lg bg-brand-mist py-2 pl-3 pr-8 text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
+                    id={`${compId}-sector-select`}
+                    data-testid="sector-select"
+                    value={selectedSector}
+                    onChange={(e) => handleSectorChange(e.target.value)}
+                    className="w-full appearance-none rounded-lg bg-brand-mist py-2 pl-3 pr-8 text-xs font-semibold text-brand-ink focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                   >
-                    {Object.keys(GEOGRAPHIC_DATA[selectedRegion]?.provincias ?? {}).map((prov) => (
-                      <option key={prov} value={prov}>
-                        {prov}
+                    <option value="all">Todos los sectores</option>
+                    {availableSectors.map((sector) => (
+                      <option key={sector} value={sector}>
+                        {sector}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 </div>
               </div>
 
-              {/* Distrito */}
               <div className="space-y-1">
                 <label
-                  htmlFor={`${compId}-distrito-select`}
+                  htmlFor={`${compId}-centro-select`}
                   className="block text-[11px] font-bold text-slate-500"
                 >
-                  Distrito
+                  Centro Poblado *
                 </label>
                 <div className="relative">
                   <select
-                    id={`${compId}-distrito-select`}
-                    data-testid="distrito-select"
-                    value={selectedDistrito}
-                    onChange={(e) => handleDistritoChange(e.target.value)}
-                    className="w-full appearance-none rounded-lg bg-brand-mist py-2 pl-3 pr-8 text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
+                    id={`${compId}-centro-select`}
+                    data-testid="centro-select"
+                    value={centroPobladoId}
+                    onChange={(e) => handleSelectCentro(e.target.value)}
+                    className="w-full appearance-none rounded-lg bg-brand-mist py-2 pl-3 pr-8 text-xs font-semibold text-brand-ink focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                   >
-                    {(GEOGRAPHIC_DATA[selectedRegion]?.provincias[selectedProvincia] ?? []).map((dist) => (
-                      <option key={dist} value={dist}>
-                        {dist}
+                    <option value="">Selecciona un centro poblado...</option>
+                    {filteredCentros.map((centro) => (
+                      <option key={centro.id} value={centro.id}>
+                        {centro.nombre} — {centro.sector}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 </div>
-              </div>
-
-              {/* Caserio / CP */}
-              <div className="space-y-1">
-                <label
-                  htmlFor={`${compId}-caserio-select`}
-                  className="block text-[11px] font-bold text-slate-500"
-                >
-                  Caserío / Centro Poblado
-                </label>
-                <div className="relative">
-                  <select
-                    id={`${compId}-caserio-select`}
-                    data-testid="caserio-select"
-                    value={selectedCaserio}
-                    onChange={(e) => setSelectedCaserio(e.target.value)}
-                    className="w-full appearance-none rounded-lg bg-brand-mist py-2 pl-3 pr-8 text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
-                  >
-                    {(CASERIOS_MAP[selectedDistrito] ?? ["Sector Central", "Zona Rural"]).map((cas) => (
-                      <option key={cas} value={cas}>
-                        {cas}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                </div>
+                {fieldErrors.centroPobladoId ? (
+                  <p className="text-[11px] font-semibold text-brand-negative">
+                    {fieldErrors.centroPobladoId}
+                  </p>
+                ) : null}
               </div>
             </div>
 
-            {/* Coordinates Inputs Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {duplicate?.hasPreviousReports ? (
+              <div
+                data-testid="duplicate-alert"
+                className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"
+              >
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-ladp-orange" />
+                <div>
+                  <p className="font-bold">
+                    Posible duplicado detectado en {selectedCentro?.nombre ?? "este centro"} (
+                    {duplicate.count}{" "}
+                    {duplicate.count === 1 ? "reporte previo" : "reportes previos"} en los
+                    últimos {duplicate.windowDays} días)
+                  </p>
+                  <p className="mt-0.5 font-mono text-[11px]">
+                    Códigos existentes: {duplicate.codes.join(", ")}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Coordinates inputs */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Latitud (WGS84)
+                <label
+                  htmlFor={`${compId}-lat`}
+                  className="block text-[10px] font-bold uppercase tracking-wider text-slate-500"
+                >
+                  Latitud WGS84 (opcional)
                 </label>
                 <input
+                  id={`${compId}-lat`}
                   type="text"
                   data-testid="lat-input"
+                  placeholder="Ej. -5.26540"
                   value={latitude}
-                  onChange={(e) => setLatitude(e.target.value)}
-                  className="w-full rounded-lg bg-brand-mist px-3 py-2 font-mono text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
+                  onChange={(e) => handleManualCoordsChange(e.target.value, longitude)}
+                  className="w-full rounded-lg bg-brand-mist px-3 py-2 font-mono text-xs font-semibold text-brand-ink placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Longitud (WGS84)
+                <label
+                  htmlFor={`${compId}-lng`}
+                  className="block text-[10px] font-bold uppercase tracking-wider text-slate-500"
+                >
+                  Longitud WGS84 (opcional)
                 </label>
                 <input
+                  id={`${compId}-lng`}
                   type="text"
                   data-testid="lng-input"
+                  placeholder="Ej. -80.67820"
                   value={longitude}
-                  onChange={(e) => setLongitude(e.target.value)}
-                  className="w-full rounded-lg bg-brand-mist px-3 py-2 font-mono text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
+                  onChange={(e) => handleManualCoordsChange(latitude, e.target.value)}
+                  className="w-full rounded-lg bg-brand-mist px-3 py-2 font-mono text-xs font-semibold text-brand-ink placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Altitud / Cota
-                </label>
-                <input
-                  type="text"
-                  value={altitude}
-                  onChange={(e) => setAltitude(e.target.value)}
-                  className="w-full rounded-lg bg-brand-mist px-3 py-2 font-mono text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Zona UTM
-                </label>
-                <input
-                  type="text"
-                  value={utmZone}
-                  onChange={(e) => setUtmZone(e.target.value)}
-                  className="w-full rounded-lg bg-brand-mist px-3 py-2 font-mono text-xs font-semibold text-brand-ink transition-colors focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
-                />
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Valor GPS Registrado
+                </span>
+                <div
+                  data-testid="gps-value"
+                  className="flex min-h-[34px] items-center rounded-lg bg-brand-mist px-3 py-2 font-mono text-xs font-bold text-brand-ink"
+                >
+                  {gpsFormatted || "Sin coordenadas registradas"}
+                </div>
               </div>
             </div>
 
-            {/* Tactical Mini Map Preview */}
+            {gpsError || fieldErrors.gpsCoords ? (
+              <p className="text-xs font-semibold text-brand-negative">
+                {gpsError ?? fieldErrors.gpsCoords}
+              </p>
+            ) : syncTimestamp ? (
+              <p className="font-mono text-[11px] font-semibold text-brand-positive">
+                GPS sincronizado: {syncTimestamp}
+              </p>
+            ) : null}
+
+            {/* Tactical Preview Map */}
             <div className="relative overflow-hidden rounded-xl bg-brand-deep p-4 text-white">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2 mb-3">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2">
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-ladp-orange" />
                   <span className="text-xs font-bold text-blue-100">
-                    Detección Hidrológica: Cuenca Río Piura (Sector Medio - {selectedDistrito})
+                    {selectedCentro
+                      ? `${selectedCentro.nombre} · ${selectedCentro.sector} (${selectedCentro.region})`
+                      : "Vista territorial Perú (selecciona centro o captura GPS)"}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setActiveMapLayer("satelite")}
-                    className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase transition-colors ${
-                      activeMapLayer === "satelite" ? "bg-brand-blue text-white" : "bg-white/10 text-white/75 hover:bg-white/20"
-                    }`}
-                  >
-                    Satélite
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveMapLayer("topografia")}
-                    className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase transition-colors ${
-                      activeMapLayer === "topografia" ? "bg-brand-blue text-white" : "bg-white/10 text-white/75 hover:bg-white/20"
-                    }`}
-                  >
-                    Topografía
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveMapLayer("inundacion")}
-                    className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase transition-colors ${
-                      activeMapLayer === "inundacion" ? "bg-ladp-orange text-white" : "bg-white/10 text-white/75 hover:bg-white/20"
-                    }`}
-                  >
-                    Inundación 2017
-                  </button>
+                  {(
+                    [
+                      { id: "satelite", label: "Satélite" },
+                      { id: "topografia", label: "Topografía" },
+                      { id: "cuencas", label: "Cuencas" },
+                    ] as const
+                  ).map((layer) => (
+                    <button
+                      key={layer.id}
+                      type="button"
+                      onClick={() => setActiveMapLayer(layer.id)}
+                      className={`rounded-lg px-2 py-1 text-[10px] font-bold uppercase transition-colors ${
+                        activeMapLayer === layer.id
+                          ? "bg-brand-blue text-white"
+                          : "bg-white/10 text-white/75 hover:bg-white/20"
+                      }`}
+                    >
+                      {layer.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Stylized Vector Radar Preview Canvas */}
-              <div className="relative h-44 w-full rounded-lg bg-[#04122b] overflow-hidden flex items-center justify-center">
-                {/* Grid Overlay */}
-                <svg className="absolute inset-0 h-full w-full opacity-20" xmlns="http://www.w3.org/2000/svg">
+              <div
+                className={`relative h-36 w-full overflow-hidden rounded-lg ${
+                  activeMapLayer === "satelite"
+                    ? "bg-slate-900"
+                    : activeMapLayer === "topografia"
+                      ? "bg-brand-ink"
+                      : "bg-brand-deep"
+                }`}
+              >
+                <svg
+                  className="pointer-events-none absolute inset-0 h-full w-full opacity-25"
+                  aria-hidden="true"
+                >
                   <defs>
-                    <pattern id="tacticalGrid" width="30" height="30" patternUnits="userSpaceOnUse">
-                      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="currentColor" strokeWidth="0.5" />
+                    <pattern id={`${compId}-grid`} width="28" height="28" patternUnits="userSpaceOnUse">
+                      <path
+                        d="M 28 0 L 0 0 0 28"
+                        fill="none"
+                        stroke="#90bafe"
+                        strokeWidth="0.6"
+                      />
                     </pattern>
                   </defs>
-                  <rect width="100%" height="100%" fill="url(#tacticalGrid)" />
+                  <rect width="100%" height="100%" fill={`url(#${compId}-grid)`} />
                 </svg>
 
-                {/* River vector line */}
-                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 400 160" preserveAspectRatio="none">
-                  <path
-                    d="M 10 20 Q 90 90 200 80 T 390 140"
-                    fill="none"
-                    stroke="#0284c7"
-                    strokeWidth="8"
-                    strokeOpacity="0.4"
-                  />
-                  <path
-                    d="M 10 20 Q 90 90 200 80 T 390 140"
-                    fill="none"
-                    stroke="#38bdf8"
-                    strokeWidth="3"
-                    strokeDasharray="4 2"
-                  />
-                  {activeMapLayer === "inundacion" && (
-                    <polygon
-                      points="120,60 250,50 320,110 180,120"
-                      fill="#ea580c"
-                      fillOpacity="0.3"
-                      stroke="#ea580c"
-                      strokeWidth="1.5"
-                    />
-                  )}
-                </svg>
-
-                {/* Pulsing Tactical Pin */}
-                <div className="relative z-10 flex flex-col items-center">
-                  <span className="relative flex h-5 w-5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ladp-orange opacity-75" />
-                    <span className="relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-ladp-orange text-white font-bold text-[9px]">
-                      📍
+                {parsedMapPoint ? (
+                  <div
+                    style={{
+                      left: `${parsedMapPoint.projected.xPercent}%`,
+                      top: `${parsedMapPoint.projected.yPercent}%`,
+                    }}
+                    className="absolute -translate-x-1/2 -translate-y-1/2"
+                  >
+                    <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-ladp-orange text-white ring-2 ring-white shadow-lg">
+                      <MapPin className="h-3.5 w-3.5" />
                     </span>
-                  </span>
-                  <div className="mt-1 rounded bg-brand-deep/85 px-2 py-0.5 text-[10px] font-mono font-bold text-amber-300 backdrop-blur-sm">
-                    {latitude}, {longitude}
                   </div>
-                  <span className="text-[9px] font-bold text-white/85">{selectedCaserio}</span>
-                </div>
-
-                {/* Mini Compass */}
-                <div className="absolute top-2 right-2 flex flex-col items-center rounded bg-brand-deep/75 px-1.5 py-0.5 text-[9px] font-mono text-blue-200 backdrop-blur-sm">
-                  <span>N</span>
-                  <Navigation className="h-3 w-3 text-blue-200 rotate-45" />
-                </div>
+                ) : (
+                  <div className="flex h-full items-center justify-center font-mono text-xs text-blue-200/80">
+                    Sin punto georreferenciado — captura GPS o ingresa latitud y longitud
+                  </div>
+                )}
               </div>
             </div>
           </section>
 
-          {/* Módulo C: Cuantificación Preliminar de Afectación y Necesidades (EDAN) */}
-          <section className="rounded-xl bg-white p-5 sm:p-6 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] space-y-5">
+          {/* Module C */}
+          <section className="space-y-5 rounded-xl bg-white p-5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-blue text-white text-xs font-bold">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-blue text-xs font-bold text-white">
                   C
                 </span>
-                <h3 className="text-sm sm:text-base font-bold text-brand-ink">
-                  Cuantificación Preliminar de Afectación y Necesidades (EDAN)
+                <h3 className="text-sm font-bold text-brand-ink sm:text-base">
+                  Afectación de Hogares, Necesidad Principal y Observaciones
                 </h3>
               </div>
-              <span className="text-xs font-bold text-slate-500">
-                Validación de primer impacto
-              </span>
+              <span className="text-xs font-bold text-slate-500">Validación de dominio</span>
             </div>
 
-            {/* Numeric Steppers Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Familias */}
-              <div className="rounded-xl bg-brand-mist p-3.5 space-y-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+              <div className="space-y-2 rounded-xl bg-brand-mist p-4 md:col-span-5">
                 <div className="flex items-center justify-between text-brand-ink">
-                  <span className="text-xs font-bold">Familias Afectadas</span>
+                  <label htmlFor={`${compId}-hogares`} className="text-xs font-bold">
+                    Hogares Afectados *
+                  </label>
                   <Home className="h-4 w-4 text-brand-blue" />
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
-                    data-testid="counter-familias-dec"
-                    onClick={() => setFamiliasAfectadas((v) => Math.max(0, v - 5))}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
+                    data-testid="counter-hogares-dec"
+                    onClick={() => setHogaresAfectados((v) => Math.max(0, v - 1))}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200/80 bg-white font-bold text-brand-ink hover:bg-brand-soft"
                   >
                     -
                   </button>
                   <input
+                    id={`${compId}-hogares`}
                     type="number"
-                    data-testid="counter-familias-input"
-                    value={familiasAfectadas}
-                    onChange={(e) => setFamiliasAfectadas(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-16 text-center font-mono text-base font-bold text-brand-ink bg-white rounded-lg border border-slate-200/80 py-1 focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
+                    min={0}
+                    max={100000}
+                    data-testid="counter-hogares-input"
+                    value={hogaresAfectados}
+                    onChange={(e) => {
+                      const raw = Number(e.target.value);
+                      setHogaresAfectados(Number.isFinite(raw) ? Math.max(0, Math.trunc(raw)) : 0);
+                    }}
+                    className="w-24 rounded-lg border border-slate-200/80 bg-white py-1.5 text-center font-mono text-base font-bold text-brand-ink focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
                   />
                   <button
                     type="button"
-                    data-testid="counter-familias-inc"
-                    onClick={() => setFamiliasAfectadas((v) => v + 5)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
+                    data-testid="counter-hogares-inc"
+                    onClick={() => setHogaresAfectados((v) => Math.min(100000, v + 5))}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200/80 bg-white font-bold text-brand-ink hover:bg-brand-soft"
                   >
                     +
                   </button>
                 </div>
-                <p className="text-[10px] text-slate-500 text-center font-medium">Viviendas anegadas</p>
+                {fieldErrors.hogaresAfectados ? (
+                  <p className="text-[11px] font-semibold text-brand-negative">
+                    {fieldErrors.hogaresAfectados}
+                  </p>
+                ) : (
+                  <p className="text-[11px] font-medium text-slate-500">
+                    Cantidad entera entre 0 y 100,000 hogares
+                  </p>
+                )}
               </div>
 
-              {/* Damnificados */}
-              <div className="rounded-xl bg-brand-mist p-3.5 space-y-2">
-                <div className="flex items-center justify-between text-brand-ink">
-                  <span className="text-xs font-bold">Damnificados Directos</span>
-                  <Users className="h-4 w-4 text-ladp-orange" />
+              <div className="space-y-2 md:col-span-7">
+                <span className="block text-xs font-bold uppercase tracking-wider text-brand-ink">
+                  Necesidad Principal Prioritaria *
+                </span>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {NECESIDAD_OPTIONS.map((opt) => {
+                    const selected = necesidadPrincipal === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        data-testid={`necesidad-${opt.value}`}
+                        onClick={() => setNecesidadPrincipal(opt.value)}
+                        className={`rounded-lg border px-2.5 py-2 text-left text-[11px] font-bold transition-colors ${
+                          selected
+                            ? "border-brand-blue bg-brand-blue text-white"
+                            : "border-slate-200 bg-white text-brand-ink hover:bg-brand-mist"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDamnificadosDirectos((v) => Math.max(0, v - 10))}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    value={damnificadosDirectos}
-                    onChange={(e) => setDamnificadosDirectos(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-16 text-center font-mono text-base font-bold text-brand-ink bg-white rounded-lg border border-slate-200/80 py-1 focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setDamnificadosDirectos((v) => v + 10)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
-                <p className="text-[10px] text-slate-500 text-center font-medium">Pérdida habitacional</p>
-              </div>
-
-              {/* Menores / Lactantes */}
-              <div className="rounded-xl bg-brand-mist p-3.5 space-y-2">
-                <div className="flex items-center justify-between text-brand-ink">
-                  <span className="text-xs font-bold">Menores / Lactantes</span>
-                  <Baby className="h-4 w-4 text-sky-600" />
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setMenoresLactantes((v) => Math.max(0, v - 2))}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    value={menoresLactantes}
-                    onChange={(e) => setMenoresLactantes(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-16 text-center font-mono text-base font-bold text-brand-ink bg-white rounded-lg border border-slate-200/80 py-1 focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setMenoresLactantes((v) => v + 2)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
-                <p className="text-[10px] text-slate-500 text-center font-medium">Atención nutricional</p>
-              </div>
-
-              {/* Adultos Mayores */}
-              <div className="rounded-xl bg-brand-mist p-3.5 space-y-2">
-                <div className="flex items-center justify-between text-brand-ink">
-                  <span className="text-xs font-bold">Adultos Mayores / PcD</span>
-                  <HeartHandshake className="h-4 w-4 text-violet-600" />
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAdultosMayores((v) => Math.max(0, v - 2))}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    value={adultosMayores}
-                    onChange={(e) => setAdultosMayores(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-16 text-center font-mono text-base font-bold text-brand-ink bg-white rounded-lg border border-slate-200/80 py-1 focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setAdultosMayores((v) => v + 2)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-brand-ink font-bold hover:bg-brand-soft transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
-                <p className="text-[10px] text-slate-500 text-center font-medium">Evacuación asistida</p>
               </div>
             </div>
 
-            {/* Transitability Radio Cards */}
+            {/* Transitability */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold uppercase tracking-wider text-brand-ink">
-                Condición de Transitabilidad y Vías de Acceso
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {[
-                  { id: "4x4", label: "Transitable 4x4", desc: "Tracción doble apta" },
-                  { id: "aerea", label: "Solo Vía Aérea / Fluvial", desc: "Zodiac o Helibalde" },
-                  { id: "bloqueada", label: "Bloqueada por Lodo/Agua", desc: "Corte de calzada" },
-                  { id: "aislado", label: "Aislado Totalmente", desc: "Riesgo vital inminente" },
-                ].map((item) => (
+              <span className="block text-xs font-bold uppercase tracking-wider text-brand-ink">
+                Condición de Acceso / Transitabilidad (Contexto Operativo)
+              </span>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                {TRANSITABILITY_OPTIONS.map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     data-testid={`transit-${item.id}`}
-                    onClick={() => setTransitability(item.id as typeof transitability)}
-                    className={`rounded-lg p-3 text-left border-2 transition-all ${
+                    onClick={() => setTransitability(item.id)}
+                    className={`rounded-lg border-2 p-3 text-left transition-all ${
                       transitability === item.id
-                        ? "border-ladp-orange bg-amber-50/70 text-brand-ink font-bold"
-                        : "border-slate-200/80 bg-white hover:bg-brand-mist/60 text-brand-ink"
+                        ? "border-ladp-orange bg-amber-50/70 font-bold text-brand-ink"
+                        : "border-slate-200/80 bg-white text-brand-ink hover:bg-brand-mist/60"
                     }`}
                   >
                     <span className="block text-xs font-bold">{item.label}</span>
-                    <span className="block text-[10px] text-slate-500 font-medium mt-0.5">{item.desc}</span>
+                    <span className="mt-0.5 block text-[10px] font-medium text-slate-500">
+                      {item.desc}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Critical Basic Services Checklist */}
+            {/* Services checklist */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold uppercase tracking-wider text-brand-ink">
-                Afectación de Líneas Vitales y Servicios Básicos
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="block text-xs font-bold uppercase tracking-wider text-brand-ink">
+                  Líneas Vitales Afectadas
+                </span>
                 <button
                   type="button"
-                  data-testid="service-agua"
-                  onClick={() => setServicesState((s) => ({ ...s, sinAgua: !s.sinAgua }))}
-                  className={`flex flex-col items-center justify-center gap-1.5 rounded-lg p-3 border text-center transition-all ${
-                    servicesState.sinAgua
-                      ? "bg-rose-50 border-brand-negative/50 text-brand-negative font-bold"
-                      : "bg-brand-mist border-transparent text-slate-500 hover:bg-brand-soft/60"
-                  }`}
+                  onClick={handleAppendAccessContextToNote}
+                  className="rounded-lg bg-brand-soft px-2.5 py-1 text-[11px] font-bold text-brand-blue hover:bg-brand-blue hover:text-white"
                 >
-                  <Droplets className="h-4 w-4" />
-                  <span className="text-[11px] font-bold leading-tight">Sin Agua Potable</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setServicesState((s) => ({ ...s, sinLuz: !s.sinLuz }))}
-                  className={`flex flex-col items-center justify-center gap-1.5 rounded-lg p-3 border text-center transition-all ${
-                    servicesState.sinLuz
-                      ? "bg-rose-50 border-brand-negative/50 text-brand-negative font-bold"
-                      : "bg-brand-mist border-transparent text-slate-500 hover:bg-brand-soft/60"
-                  }`}
-                >
-                  <ZapOff className="h-4 w-4" />
-                  <span className="text-[11px] font-bold leading-tight">Corte Fluido Eléctrico</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setServicesState((s) => ({ ...s, sinCobertura: !s.sinCobertura }))}
-                  className={`flex flex-col items-center justify-center gap-1.5 rounded-lg p-3 border text-center transition-all ${
-                    servicesState.sinCobertura
-                      ? "bg-rose-50 border-brand-negative/50 text-brand-negative font-bold"
-                      : "bg-brand-mist border-transparent text-slate-500 hover:bg-brand-soft/60"
-                  }`}
-                >
-                  <PhoneOff className="h-4 w-4" />
-                  <span className="text-[11px] font-bold leading-tight">Sin Cobertura Móvil</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setServicesState((s) => ({ ...s, colapsoDesague: !s.colapsoDesague }))}
-                  className={`flex flex-col items-center justify-center gap-1.5 rounded-lg p-3 border text-center transition-all ${
-                    servicesState.colapsoDesague
-                      ? "bg-rose-50 border-brand-negative/50 text-brand-negative font-bold"
-                      : "bg-brand-mist border-transparent text-slate-500 hover:bg-brand-soft/60"
-                  }`}
-                >
-                  <AlertTriangle className="h-4 w-4" />
-                  <span className="text-[11px] font-bold leading-tight">Colapso Alcantarillado</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setServicesState((s) => ({ ...s, saludAfectado: !s.saludAfectado }))}
-                  className={`flex flex-col items-center justify-center gap-1.5 rounded-lg p-3 border text-center transition-all ${
-                    servicesState.saludAfectado
-                      ? "bg-rose-50 border-brand-negative/50 text-brand-negative font-bold"
-                      : "bg-brand-mist border-transparent text-slate-500 hover:bg-brand-soft/60"
-                  }`}
-                >
-                  <Building2 className="h-4 w-4" />
-                  <span className="text-[11px] font-bold leading-tight">Centro Salud Inundado</span>
+                  Insertar resumen en nota
                 </button>
               </div>
-            </div>
-          </section>
-
-          {/* Módulo D: Matriz de Severidad Sugerida */}
-          <section className="rounded-xl bg-rose-50/75 p-5 sm:p-6 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] border border-rose-200/80 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="h-5 w-5 text-brand-negative animate-pulse" />
-                <h3 className="text-sm sm:text-base font-bold text-brand-ink">
-                  Matriz de Severidad Sugerida (Cálculo Algorítmico Táctico)
-                </h3>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+                {VITAL_SERVICES.map((srv) => {
+                  const Icon = srv.icon;
+                  const active = servicesAffected.includes(srv.id);
+                  return (
+                    <button
+                      key={srv.id}
+                      type="button"
+                      data-testid={`service-${srv.id}`}
+                      onClick={() => handleToggleService(srv.id)}
+                      className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border p-3 text-center transition-all ${
+                        active
+                          ? "border-brand-negative/50 bg-rose-50 font-bold text-brand-negative"
+                          : "border-transparent bg-brand-mist text-slate-500 hover:bg-brand-soft/60"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="text-[11px] font-bold leading-tight">{srv.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <span className="rounded-full bg-brand-negative text-white px-3 py-1 text-xs font-bold tracking-wider uppercase shadow-xs">
-                Nivel 4 · Rojo Crítico
-              </span>
             </div>
-            <div className="rounded-xl bg-white p-4 border border-rose-200/60 text-xs text-brand-ink space-y-2 leading-relaxed">
-              <p className="font-bold text-brand-negative">
-                Justificación Automática de Despacho Inmediato:
-              </p>
-              <p className="font-medium text-slate-600">
-                El sensor hidrométrico en estación Catacaos registró un caudal de{" "}
-                <strong className="text-brand-ink">1,640 m³/s</strong> (superando el umbral de alerta
-                roja de 1,500 m³/s). La combinación con{" "}
-                <strong className="text-brand-ink">{familiasAfectadas} familias</strong> en condición de{" "}
-                <strong className="text-ladp-orange font-bold uppercase">{transitability}</strong> califica
-                el incidente para intervención prioritaria de brigadas tácticas anfibias.
-              </p>
+
+            {/* Reference note */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <label
+                  htmlFor={`${compId}-nota`}
+                  className="font-bold uppercase tracking-wider text-brand-ink"
+                >
+                  Nota de Referencia de Campo (opcional)
+                </label>
+                <span className="font-mono text-[11px] text-slate-500">
+                  {notaReferencia.length}/280
+                </span>
+              </div>
+              <textarea
+                id={`${compId}-nota`}
+                rows={3}
+                maxLength={280}
+                data-testid="nota-referencia-input"
+                value={notaReferencia}
+                onChange={(e) => setNotaReferencia(e.target.value)}
+                placeholder="Describe ubicación exacta, familias evacuadas, puntos de acceso o requerimientos urgentes..."
+                className="w-full rounded-xl bg-brand-mist p-3 text-xs font-medium text-brand-ink placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/25"
+              />
+              {fieldErrors.notaReferencia ? (
+                <p className="text-[11px] font-semibold text-brand-negative">
+                  {fieldErrors.notaReferencia}
+                </p>
+              ) : null}
             </div>
           </section>
         </div>
 
-        {/* Right Column: Support Panel, Evidence & Immediate Dispatch (4 Cols) */}
-        <aside className="lg:col-span-4 space-y-6">
-          {/* Multimedia Dropzone & Files */}
-          <section className="rounded-xl bg-white p-5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-brand-ink flex items-center gap-2">
-                <Paperclip className="h-4 w-4 text-brand-blue" />
-                <span>Evidencia Multimedia</span>
+        {/* Right Sidebar (4 cols) */}
+        <aside className="space-y-6 lg:col-span-4">
+          {/* Validation Readiness Panel */}
+          <section className="space-y-3 rounded-xl bg-white p-5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h3 className="flex items-center gap-2 text-sm font-bold text-brand-ink">
+                <ClipboardCheck className="h-4 w-4 text-brand-blue" />
+                <span>Verificación Pre-Registro</span>
               </h3>
-              <span className="text-[10px] font-bold text-brand-blue uppercase font-mono">
-                AES-256
+              <span className="rounded bg-brand-mist px-2 py-0.5 font-mono text-[10px] font-bold text-slate-600">
+                Esquema EDAN
               </span>
             </div>
 
-            {/* Dropzone mock */}
-            <div className="rounded-xl border-2 border-dashed border-slate-200 bg-brand-mist/70 p-4 text-center hover:bg-brand-mist transition-colors cursor-pointer">
-              <UploadCloud className="mx-auto h-8 w-8 text-brand-blue mb-1" />
-              <p className="text-xs font-bold text-brand-ink">Arrastre fotos o videos aquí</p>
-              <p className="text-[10px] text-slate-500 font-medium mt-0.5">
-                Metadatos EXIF georreferenciados obligatorios
-              </p>
-            </div>
-
-            {/* Uploaded items */}
-            <div className="space-y-2">
-              {uploadedFiles.map((f) => (
-                <div
-                  key={f.id}
-                  className="flex items-center justify-between rounded-lg bg-brand-mist p-2.5 text-xs"
+            <ul className="space-y-2 text-xs">
+              {[
+                {
+                  label: "Centro poblado",
+                  value: selectedCentro ? `${selectedCentro.nombre} (${selectedCentro.region})` : "Sin seleccionar",
+                  ok: Boolean(selectedCentro),
+                },
+                {
+                  label: "Tipo de afectación",
+                  value: labelForTipoAfectacion(tipoAfectacion),
+                  ok: true,
+                },
+                {
+                  label: "Necesidad principal",
+                  value: labelForNecesidad(necesidadPrincipal),
+                  ok: true,
+                },
+                {
+                  label: "Hogares afectados",
+                  value: `${formatCount(hogaresAfectados)} hogares`,
+                  ok: Number.isInteger(hogaresAfectados) && hogaresAfectados >= 0,
+                },
+                {
+                  label: "Fecha del suceso",
+                  value: fechaSuceso || "Inválida",
+                  ok: Boolean(fechaSuceso) && fechaSuceso <= todayKey,
+                },
+                {
+                  label: "GPS (opcional)",
+                  value: gpsFormatted || "No registrado",
+                  ok: Boolean(gpsFormatted),
+                  optional: true,
+                },
+              ].map((item) => (
+                <li
+                  key={item.label}
+                  className="flex items-center justify-between gap-2 rounded-lg bg-brand-mist px-3 py-2"
                 >
-                  <div className="min-w-0 pr-2">
-                    <p className="truncate font-bold text-brand-ink">{f.name}</p>
-                    <div className="flex items-center gap-2 text-[10px] text-brand-positive font-bold">
-                      <CheckCircle2 className="h-3 w-3" />
-                      <span>{f.size} · GPS OK</span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveFile(f.id)}
-                    title="Eliminar archivo"
-                    className="rounded-lg p-1 text-slate-500 hover:text-brand-negative hover:bg-rose-50 transition-colors"
+                  <span className="font-semibold text-slate-600">{item.label}</span>
+                  <span
+                    className={`truncate font-bold ${
+                      item.ok
+                        ? "text-brand-positive"
+                        : item.optional
+                          ? "text-slate-500"
+                          : "text-ladp-orange"
+                    }`}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                    {item.value}
+                  </span>
+                </li>
               ))}
-            </div>
-
-            {/* Drone link */}
-            <button
-              type="button"
-              data-testid="drone-stream-btn"
-              onClick={() => setDroneStreamActive(!droneStreamActive)}
-              className={`w-full flex items-center justify-center gap-2 rounded-lg py-2 px-3 text-xs font-bold transition-all border ${
-                droneStreamActive
-                  ? "bg-brand-soft border-brand-blue/40 text-brand-blue"
-                  : "bg-brand-mist border-transparent text-slate-600 hover:bg-brand-soft/60"
-              }`}
-            >
-              <Video className="h-4 w-4" />
-              <span>
-                {droneStreamActive ? "Enlazar Dron FEN-Alpha 02 (Stream Activo)" : "Activar Enlace con Dron FEN"}
-              </span>
-            </button>
+            </ul>
           </section>
 
-          {/* Despacho de Brigada (GPS Proximity) */}
-          <section className="rounded-xl bg-white p-5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-brand-ink flex items-center gap-2">
-                <Truck className="h-4 w-4 text-ladp-orange" />
-                <span>Despacho de Brigada</span>
-              </h3>
-              <span className="text-[10px] font-bold text-ladp-orange font-mono">GPS Proximity</span>
-            </div>
-
-            {/* Dispatch toggle */}
-            <label className="flex items-start gap-2.5 cursor-pointer">
-              <input
-                type="checkbox"
-                data-testid="brigade-dispatch-checkbox"
-                checked={brigadeDispatchEnabled}
-                onChange={(e) => setBrigadeDispatchEnabled(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-blue focus:ring-brand-blue/25"
-              />
-              <span className="text-xs font-bold text-brand-ink leading-tight">
-                Activar Despacho Inmediato USAR / Anfibios
-                <span className="block text-[10px] text-slate-500 font-medium mt-0.5">
-                  Despliegue de cuadrilla táctica en menos de 15 min
-                </span>
-              </span>
-            </label>
-
-            {/* Units selection */}
-            <div className="space-y-2">
-              <label className="block text-[11px] font-bold text-slate-500">
-                Unidad Más Cercana Detectada:
-              </label>
-              {[
-                { id: "bravo-3", name: "Patrulla Bravo-3", dist: "a 4.2 km", status: "Disponible" },
-                { id: "bomberos", name: "Cía. Bomberos Piura N° 25", dist: "a 8.6 km", status: "En base" },
-                { id: "ejercito", name: "Batallón de Ingeniería EP N° 51", dist: "a 14 km", status: "Alistado" },
-              ].map((unit) => (
-                <button
-                  key={unit.id}
-                  type="button"
-                  onClick={() => setSelectedBrigadeUnit(unit.id)}
-                  className={`w-full flex items-center justify-between rounded-lg p-2.5 text-xs text-left transition-all border ${
-                    selectedBrigadeUnit === unit.id
-                      ? "border-brand-blue bg-brand-soft/70 font-bold text-brand-ink"
-                      : "border-transparent bg-brand-mist text-brand-ink hover:bg-brand-soft/50"
-                  }`}
-                >
-                  <div>
-                    <p className="font-bold text-brand-ink">{unit.name}</p>
-                    <p className="text-[10px] text-slate-500 font-medium">{unit.dist}</p>
-                  </div>
-                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase text-brand-blue">
-                    {unit.status}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Requested Equipment to Base */}
-            <div className="space-y-2 pt-2 border-t border-slate-100">
-              <label className="block text-[11px] font-bold text-slate-500">
-                Equipamiento Solicitado a Base:
-              </label>
-              <div className="space-y-1.5 text-xs font-medium text-brand-ink">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={requestedEquipment.motobombas}
-                    onChange={(e) => setRequestedEquipment((s) => ({ ...s, motobombas: e.target.checked }))}
-                    className="h-3.5 w-3.5 rounded text-brand-blue"
-                  />
-                  <span>2 Motobombas de 6&quot; de alta presión</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={requestedEquipment.boteZodiac}
-                    onChange={(e) => setRequestedEquipment((s) => ({ ...s, boteZodiac: e.target.checked }))}
-                    className="h-3.5 w-3.5 rounded text-brand-blue"
-                  />
-                  <span>1 Bote zodiac con motor fuera de borda</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={requestedEquipment.sacosTerreros}
-                    onChange={(e) => setRequestedEquipment((s) => ({ ...s, sacosTerreros: e.target.checked }))}
-                    className="h-3.5 w-3.5 rounded text-brand-blue"
-                  />
-                  <span>200 Sacos terreros y geomalla</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={requestedEquipment.racionesAgua}
-                    onChange={(e) => setRequestedEquipment((s) => ({ ...s, racionesAgua: e.target.checked }))}
-                    className="h-3.5 w-3.5 rounded text-brand-blue"
-                  />
-                  <span>Raciones frías y agua embotellada</span>
-                </label>
+          {/* Duplicate Monitor */}
+          <section className="space-y-3 rounded-xl bg-white p-5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
+            <h3 className="flex items-center gap-2 border-b border-slate-100 pb-2 text-sm font-bold text-brand-ink">
+              <Radio className="h-4 w-4 text-brand-blue" />
+              <span>Control de Duplicados ({duplicate?.windowDays ?? 7} días)</span>
+            </h3>
+            {!centroPobladoId ? (
+              <p className="text-xs font-medium text-slate-500">
+                Selecciona un centro poblado para consultar reportes recientes en el mismo punto.
+              </p>
+            ) : duplicateLoading ? (
+              <p className="text-xs font-medium text-slate-500">Verificando historial reciente...</p>
+            ) : duplicate?.hasPreviousReports ? (
+              <div className="space-y-1.5 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
+                <p className="font-bold">
+                  {duplicate.count}{" "}
+                  {duplicate.count === 1 ? "coincidencia reciente" : "coincidencias recientes"}
+                </p>
+                {duplicate.codes.map((code) => (
+                  <p key={code} className="font-mono text-[11px]">
+                    {code}
+                  </p>
+                ))}
               </div>
-            </div>
+            ) : (
+              <div className="rounded-lg bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
+                Sin duplicados registrados en los últimos {duplicate?.windowDays ?? 7} días para{" "}
+                {selectedCentro?.nombre ?? "esta zona"}.
+              </div>
+            )}
           </section>
 
           {/* Action Execution Panel */}
-          <section className="rounded-xl bg-white p-5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)] space-y-3">
-            <h3 className="text-sm font-bold text-brand-ink border-b border-slate-100 pb-2 flex items-center gap-2">
+          <section className="space-y-3 rounded-xl bg-white p-5 shadow-[0_1px_2px_rgba(12,45,110,0.04),0_18px_34px_-28px_rgba(12,45,110,0.45)]">
+            <h3 className="flex items-center gap-2 border-b border-slate-100 pb-2 text-sm font-bold text-brand-ink">
               <Send className="h-4 w-4 text-ladp-orange" />
               <span>Ejecución del Registro</span>
             </h3>
 
-            {/* Primary Action Button */}
+            {Object.keys(fieldErrors).length > 0 ? (
+              <div
+                data-testid="form-errors"
+                role="alert"
+                className="space-y-1 rounded-lg bg-rose-50 p-2.5 text-[11px] font-semibold text-brand-negative"
+              >
+                {Object.values(fieldErrors).map((err, index) => (
+                  <p key={index}>{err}</p>
+                ))}
+              </div>
+            ) : null}
+
             <button
               type="button"
+              disabled={submitting}
               data-testid="submit-incident-btn"
-              onClick={handleRegisterIncident}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-ladp-orange hover:bg-ladp-orange/90 text-white py-3 px-4 text-sm font-bold uppercase tracking-wider shadow-xs transition-colors"
+              onClick={() => void handleSubmitIncident()}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-ladp-orange px-4 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-ladp-orange/90 disabled:opacity-60"
             >
               <Send className="h-4 w-4" />
-              <span>Registrar Incidencia y Notificar</span>
+              <span>{submitting ? "Registrando..." : "Registrar Incidencia"}</span>
             </button>
 
-            {/* Draft Save */}
             <button
               type="button"
               data-testid="save-draft-btn"
               onClick={handleSaveDraft}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-brand-mist hover:bg-brand-soft text-brand-ink py-2.5 px-4 text-xs font-bold transition-colors"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-mist px-4 py-2.5 text-xs font-bold text-brand-ink transition-colors hover:bg-brand-soft"
             >
               <Save className="h-3.5 w-3.5 text-brand-blue" />
-              <span>Guardar Borrador en Cache Táctico</span>
+              <span>Guardar Borrador Local</span>
             </button>
 
-            {/* SISMATE Alert Button */}
             <button
               type="button"
-              data-testid="sismate-alert-btn"
-              onClick={handleEmitSismate}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-brand-negative py-2.5 px-4 text-xs font-bold border border-rose-200 transition-colors"
+              data-testid="reset-form-btn"
+              onClick={handleResetForm}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-ink"
             >
-              <BellRing className="h-3.5 w-3.5" />
-              <span>Emitir Alerta Celular SISMATE</span>
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Limpiar Formulario</span>
             </button>
 
-            <p className="text-[10px] text-slate-500 text-center font-medium leading-tight pt-1">
-              El envío asignará un código INC oficial inmutable certificado en el nodo de auditoría
-              nacional INDECI / COEN.
+            <p className="pt-1 text-center text-[10px] font-medium leading-tight text-slate-500">
+              Al confirmar el registro se asigna un código INC único en el repositorio nacional de
+              incidencias.
             </p>
           </section>
         </aside>
